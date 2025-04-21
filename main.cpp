@@ -114,7 +114,17 @@ public:
 			currPlayer = -currPlayer;
 		}
 
-		return CheckWin(tempBoard);
+		return CheckWin(tempBoard) * player; //令其始终表示对当前节点而言的优劣，便于Select判断
+	}
+
+	void BackPropagate(double re){
+		TreeNode* node = this;
+		while(node != nullptr){
+			node->n += 1;
+			node->val += re;
+			re = -re;
+			node = node->father;
+		}
 	}
 
 };
@@ -136,7 +146,7 @@ TreeNode* MCTS(int limit,int player){
 
 		double result = expand->Simulate();
 
-		expand->Rollback(result);
+		expand->BackPropagate(result);
 	}
 
 	TreeNode* BestChild = nullptr;
