@@ -43,41 +43,119 @@ class TreeNode {
 private:
 
 	double val;						// 当前节点的评价值
-	int n;							// 当前节点被更新的次数
 	int player;						// 这一步的玩家(-1,1)
-	int move_x, move_y;				// 这一步的动作
-	vector<TreeNode*> children;		// 这个节点的儿子
-	TreeNode* father;				// 这个节点的监护人
 
 public:
 
-	TreeNode(int pos_x = -1, int pos_y = -1, int pl = 0) {
+	int n;							// 当前节点被更新的次数
+	int move_x, move_y;				// 这一步的动作
+	vector<TreeNode*> children;		// 这个节点的儿子
+	TreeNode* father;				// 这个节点的监护人
+	vector<Coord>UntriedMoves;
+
+	TreeNode(int pos_x = -1, int pos_y = -1, int pl = 0, TreeNode* fa = nullptr) {
 		val = 0;
 		n = 0;
 		move_x = pos_x;
 		move_y = pos_y;
 		player = pl;
-		father = NULL;
+		father = fa;
+		if(father == nullptr){
+			for(auto coord:EmptyGrid){
+				UntriedMoves.push_back(coord);
+			}
+		}
 	}
+
 	TreeNode* Select() {
+		TreeNode* best = nullptr;
+		double score = -1e9;
+		for (auto child : children) {
+			double ucb = child->val*1.0 / child->n + sqrt(2*log(n)*1.0 / child->n);
+			if (ucb > score) {
+				score = ucb;
+				best = child;
+			}
+		}
+		return best;
+	}
+	
+	TreeNode* Expand() { // Expand 被 Select 调用 
+		if(UntriedMoves.empty())return nullptr;
 
+		int t = rand() % UntriedMoves.size();
+		Coord move = UntriedMoves[t];
+		UntriedMoves.erase(UntriedMoves.begin() + t);
 
+		TreeNode* child = new TreeNode(move.x,move.y,-player,this);
+		child->UntriedMoves=this->UntriedMoves;
+		children.push_back(child);
 
+		return child;
 	}
 
-	TreeNode* Expand() { // Expand 被 Select 调用 
+	double Simulate(){
+		int tempBoard[SIZE][SIZE];
+		memcpy(tempBoard, board, sizeof(board));
+		vector<Coord>tempEmpty = EmptyGrid;
 
+		if(move_x != -1 && move_y != -1){
+			tempBoard[move_x][move_y] = player;
+			tempEmpty.erase(remove_if(tempEmpty.begin(), tempEmpty.end(),
+				[&](const Coord& re){return re.x==move_x&&re.y==move_y;}), tempEmpty.end());
+		}
 
+		int currPlayer = -player;
+		while(!tempEmpty.empty()){
+			int r = rand()%tempEmpty.size();
+			Coord move = tempEmpty[r];
+			tempBoard[move.x][move.y] = currPlayer;
+			tempEmpty.erase(tempEmpty.begin()+r);
+			currPlayer = -currPlayer;
+		}
+
+		return CheckWin(tempBoard);
 	}
 
 };
 
-TreeNode* MtclRoot = NULL;
+TreeNode* MCTS(int limit,int player){
+	TreeNode* root = new TreeNode(-1,-1,player,nullptr);
+	for(int i = 0; i < limit; i++){
+		TreeNode* node = root;
+		while(!node->UntriedMoves.empty() && !node->children.empty()){
+			node = node->Select();
+		}
 
-/*
+		TreeNode* expand = nullptr;
+		if(!node->UntriedMoves.empty()){
+			expand = node->Expand();
+		} else {
+			expand = node;
+		}
 
+		double result = expand->Simulate();
 
-*/
+		expand->Rollback(result);
+	}
+
+	TreeNode* BestChild = nullptr;
+	int MaxVisit = -1;
+	for(auto child : root->children){
+		if(child->n > MaxVisit){
+			MaxVisit = child->n;
+			BestChild = child;
+		}
+	}
+	if(BestChild){
+		new_x = BestChild->move_x;
+		new_y = BestChild->move_y;
+	} else {
+		Coord fallback = EmptyGrid[rand()%EmptyGrid.size()];
+		new_x = fallback.x;
+		new_y = fallback.y;
+	}
+}
 
 int main()
 {
@@ -96,13 +174,10 @@ int main()
 	/************************************************************************************/
 	/***********在下面填充你的代码，决策结果（本方将落子的位置）存入new_x和new_y中****************/
 
-	// 初始化蒙特卡洛搜素树根节点
-
-	MtclRoot = new TreeNode();
-
-	// 选择
-
-	MtclRoot->Select();
+	srand(time(0));
+	Init();
+	
+	TreeNode* root = MCTS(1000,1);
 
 
 	/***********在上方填充你的代码，决策结果（本方将落子的位置）存入new_x和new_y中****************/
