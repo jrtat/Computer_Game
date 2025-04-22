@@ -71,7 +71,7 @@ public:
 		TreeNode* best = nullptr;
 		double score = -1e9;
 		for (auto child : children) {
-			double ucb = child->val*1.0 / child->n + sqrt(2*log(n)*1.0 / child->n);
+			double ucb = child->val*1.0 / child->n + sqrt(2*log(n)*1.0 / child->n); // 考虑参数c
 			if (ucb > score) {
 				score = ucb;
 				best = child;
@@ -81,14 +81,14 @@ public:
 	}
 	
 	TreeNode* Expand() { // Expand 被 Select 调用 
-		if(UntriedMoves.empty())return nullptr;
+		if(UntriedMoves.empty())return nullptr; 
 
-		int t = rand() % UntriedMoves.size();
+		int t = rand() % UntriedMoves.size(); // 为什么这里只扩展了一个节点？
 		Coord move = UntriedMoves[t];
 		UntriedMoves.erase(UntriedMoves.begin() + t);
 
 		TreeNode* child = new TreeNode(move.x,move.y,-player,this);
-		child->UntriedMoves=this->UntriedMoves;
+		child->UntriedMoves=this->UntriedMoves; // 复杂度受不了
 		children.push_back(child);
 
 		return child;
@@ -129,7 +129,7 @@ public:
 
 };
 
-TreeNode* MCTS(int limit,int player){
+TreeNode* MCTS(int limit,int player){ // player 这个参数大概是没意义的
 	TreeNode* root = new TreeNode(-1,-1,player,nullptr);
 	for(int i = 0; i < limit; i++){
 		TreeNode* node = root;
