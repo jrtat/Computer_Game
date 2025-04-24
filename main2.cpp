@@ -28,7 +28,16 @@ vector<Coord> EmptyGrid;  // 用来记录没下过的点
 
 int curBoard[SIZE][SIZE]; //一个棋盘的备份
 int upperR[SIZE][SIZE], upperB[SIZE][SIZE], lowerR[SIZE][SIZE], lowerB[SIZE][SIZE]; // 计算潜力值的工具
-vector<Coord> HighVal, LowVal, MustDone; // 给所有可行的下一步棋分类
+vector<Coord> HighVal, MidVal, LowVal, MustDone; // 给所有可行的下一步棋分类 | （对后两者的存在的必要性保持怀疑）
+/* 
+必做：几乎一定会获胜或者几乎一定是最优的情况（以70%的概率执行这个动作）
+
+高价值：自己潜力值最高和对手潜力值最高的1-3个点（在不执行必做的情况下以90%的概率执行这个动作）
+
+中等价值：自己潜力值和对手潜力值较高的点（在不执行高价值的情况下以70%的概率执行这个动作）
+
+低价值：自己潜力值和对手潜力值都较低的点（在不执行中价值的情况下以70%的概率执行这个动作）
+*/
 
 int fa[SIZE * SIZE] = { 0 }; // 并查集函数(其中 0,1,2,3分别代表  board[0][0-10] / board[10][0-10]/ board[0-10][0] / board[0-10][10])
 int mycolor = 0; // -1 表示我的颜色是board[0][0-10]和board[10][0-10] / 1 表示我的颜色是board[0-10][0]和board[0-10][10]
@@ -84,6 +93,7 @@ public:
 		TreeNode* ChosenChild = nullptr;
 		MustDone.clear();
 		HighVal.clear();
+		MidVal.clear();
 		LowVal.clear();
 
 		for (int i = 0; i < UntriedMoves.size(); i++) {
@@ -126,6 +136,7 @@ public:
 			/* 初始化 */
 			MustDone.clear();
 			HighVal.clear();
+			MidVal.clear();
 			LowVal.clear();
 
 			/* 选出一个节点 */
