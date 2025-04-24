@@ -1,0 +1,397 @@
+#include <iostream>
+#include <string>
+#include <ctime>
+#include <cstdlib>
+#include <vector>
+#include <algorithm>
+using namespace std;
+
+const int SIZE = 15; // 意★义★不★明
+int board[SIZE][SIZE] = { 0 }; //我方1 对方-1 先手不定
+int new_x, new_y; // 输出
+
+/* Part 1 全局变量 */
+
+const int counter = 60; // 在被模拟多少次后扩展
+
+struct Coord {
+	int x, y;
+	Coord(int xx = -1, int yy = -1) { x = xx, y = yy; }
+	Coord(Coord& tmp) { x = tmp.x, y = tmp.y; }
+	Coord& operator = (const Coord& other) {
+		return *this;
+	}
+};
+
+vector<Coord> UntriedMoves; // 记录开始扩展时, 可用的点
+vector<Coord> EmptyGrid;  // 用来记录没下过的点
+
+int curBoard[SIZE][SIZE]; //一个棋盘的备份
+int upperR[SIZE][SIZE], upperB[SIZE][SIZE], lowerR[SIZE][SIZE], lowerB[SIZE][SIZE]; // 计算潜力值的工具
+int curPlayer; // 在模拟时记录当前该谁
+vector<Coord> HighVal, LowVal, MustDone;
+/* End Part1 */
+
+/* Part2 搜素树的节点 */
+
+class TreeNode {
+
+private:
+
+	double val;// 当前节点的评价值
+	
+
+public:
+
+	int player;// 这一步的玩家(-1,1)
+	int n;// 当前节点被更新的次数
+	int move_x, move_y;// 这一步的动作
+	vector<TreeNode*> children;// 这个节点的儿子
+	TreeNode* father;// 这个节点的监护人
+
+	TreeNode(int pos_x = -1, int pos_y = -1, int pl = 0, TreeNode* fa = nullptr) {
+		val = 0;
+		n = 0;
+		move_x = pos_x;
+		move_y = pos_y;
+		player = pl;
+		father = fa;
+	}
+
+	TreeNode* Select() {
+		TreeNode* best = nullptr;
+		double score = -1e9;
+		for (auto child : children) {
+			double ucb = child->val * 1.0 / child->n + 0.5 * sqrt(2 * log(n) * 1.0 / child->n); //ucb
+			if (ucb > score) {
+				score = ucb;
+				best = child;
+			}
+		}
+		return best;
+	}
+
+	TreeNode* Expand() {
+
+		// 初始化
+
+		TreeNode* ChosenChild = nullptr;
+		MustDone.clear();
+		HighVal.clear();
+		LowVal.clear();
+
+		for(int i=0;i<UntriedMoves.size();i++){
+
+			/* Simulate中的两个优化同样可以适用于Expand */
+			
+			Check1(move_y, move_x, -player); // 找出被捕获的点
+			
+			if (Check2(UntriedMoves[i].x, UntriedMoves[i].y) == 1) {
+				UntriedMoves.erase(UntriedMoves.begin() + i); // 以后也不用考虑这个点了
+				continue;
+			}
+
+			// 这里计算每个节点的效益 然后放入HighVal LowVal MustDone
+
+			/* 向搜素树添加节点 */
+
+			TreeNode* child = new TreeNode(move_x, move_y, -player, this); // 子节点玩家对当前玩家取反
+			children.push_back(child);
+
+			/* 根据不同概率 随机从 MustDone HighVal LowVal 中选一个扩展 */
+
+		}
+		return ChosenChild;
+	}
+
+	double Simulate() {
+	
+		// 直接使用 UntriedMoves 和 curBoard 即可
+		// 把当前节点的状态作为起始状态
+		int lastX = move_x, lastY = move_y, lastplayer = player;
+
+		while (1) { // 直到分出胜负才停
+
+			/* 判断胜负（判断的是（lastX，lastY）这一步） */ 
+			
+			int win = CheckWin(curBoard);
+			if (win != 0) {
+				// 
+				return win* lastplayer; //令其始终表示对当前节点而言的优劣，便于Select判断
+			}
+
+			/* 初始化 */
+			MustDone.clear();
+			HighVal.clear();
+			LowVal.clear();
+			
+			/* 选出一个节点 */ 
+
+			Check1(lastX, lastY, -lastplayer); // 找出被捕获的点
+		
+			for (int i = 0; i < UntriedMoves.size(); i++) {
+				if (Check2(UntriedMoves[i].x, UntriedMoves[i].y) == 1) {
+					UntriedMoves.erase(UntriedMoves.begin() + i); // 以后也不用考虑这个点了
+					continue;
+				}
+			}
+
+			// 没写好
+
+			/* 更新 */
+			// 更新 UntriedMoves
+			curBoard[][] = -lastplayer; // 更新 curBoard
+			lastplayer = -lastplayer;
+			lastX = ;
+			lastY = ;
+
+		}
+
+	}
+
+	void BackPropagate(double re) { // 更新搜素树中的值
+		TreeNode* node = this;
+		while (node != nullptr) {
+			node->n += 1;
+			node->val += re;
+			re = -re;
+			node = node->father;
+		}
+	}
+
+};
+
+/* End Part2 */
+
+/* Part3 函数 */
+
+void Check1(int lastX,int lastY, int curPl) { // 被捕获的位置 模拟时优化1
+	int CaptureX, CaptureY, Bridge1X, Bridge1Y, Bridge2X, Bridge2Y;
+	CaptureX = lastX - 1, CaptureY = lastY;
+	Bridge1X = lastX - 1, Bridge1Y = lastY + 1;
+	Bridge2X = lastX, Bridge2Y = lastY - 1;
+	if (curBoard[CaptureX][CaptureY] == 0 && curBoard[Bridge1X][Bridge1Y] == curPl && curBoard[Bridge2X][Bridge2Y] == curPl) {
+		MustDone.push_back(Coord(CaptureX, CaptureY));
+	}
+	CaptureX = lastX - 1, CaptureY = lastY + 1;
+	Bridge1X = lastX - 1, Bridge1Y = lastY;
+	Bridge2X = lastX, Bridge2Y = lastY + 1;
+	if (curBoard[CaptureX][CaptureY] == 0 && curBoard[Bridge1X][Bridge1Y] == curPl && curBoard[Bridge2X][Bridge2Y] == curPl) {
+		MustDone.push_back(Coord(CaptureX, CaptureY));
+	}
+	CaptureX = lastX + 1, CaptureY = lastY;
+	Bridge1X = lastX, Bridge1Y = lastY + 1;
+	Bridge2X = lastX + 1, Bridge2Y = lastY - 1;
+	if (curBoard[CaptureX][CaptureY] == 0 && curBoard[Bridge1X][Bridge1Y] == curPl && curBoard[Bridge2X][Bridge2Y] == curPl) {
+		MustDone.push_back(Coord(CaptureX, CaptureY));
+	}
+	CaptureX = lastX + 1, CaptureY = lastY - 1;
+	Bridge1X = lastX, Bridge1Y = lastY - 1;
+	Bridge2X = lastX + 1, Bridge2Y = lastY;
+	if (curBoard[CaptureX][CaptureY] == 0 && curBoard[Bridge1X][Bridge1Y] == curPl && curBoard[Bridge2X][Bridge2Y] == curPl) {
+		MustDone.push_back(Coord(CaptureX, CaptureY));
+	}
+	CaptureX = lastX, CaptureY = lastY + 1;
+	Bridge1X = lastX - 1, Bridge1Y = lastY + 1;
+	Bridge2X = lastX + 1, Bridge2Y = lastY;
+	if (curBoard[CaptureX][CaptureY] == 0 && curBoard[Bridge1X][Bridge1Y] == curPl && curBoard[Bridge2X][Bridge2Y] == curPl) {
+		MustDone.push_back(Coord(CaptureX, CaptureY));
+	}
+	CaptureX = lastX, CaptureY = lastY - 1;
+	Bridge1X = lastX - 1, Bridge1Y = lastY;
+	Bridge2X = lastX + 1, Bridge2Y = lastY - 1;
+	if (curBoard[CaptureX][CaptureY] == 0 && curBoard[Bridge1X][Bridge1Y] == curPl && curBoard[Bridge2X][Bridge2Y] == curPl) {
+		MustDone.push_back(Coord(CaptureX, CaptureY));
+	}
+	return;
+}
+
+int stepX[6] = {-1,-1, 0, 0, 1, 1};
+int stepY[6] = { 0, 1,-1, 1,-1, 0};
+
+bool Check2(int curX, int curY) { // 返回1说明（curX, curY）是无效位置
+	int ctr1 = 0, ctr2 = 0;
+	for (int j = 0; j <= 12; j++) {
+		int i = j % 6;
+		int tmpX = curX + stepX[i], tmpY = curY + stepY[i];
+		if (curBoard[tmpX][tmpY] == 1) {
+			ctr1++;
+			ctr2 = 0;
+			if (ctr1 == 4) {
+				return 1;
+			}
+			else if (ctr1 == 3) {
+				int tx = curX + stepX[(i + 2) % 6], ty = curY + stepY[(i + 2) % 6];
+				if (curBoard[tx][ty] == -1) return 1;
+			}
+			else if (ctr1 == 2) {
+				int tx1 = curX + stepX[(i + 2) % 6], ty1 = curY + stepY[(i + 2) % 6];
+				int tx2 = curX + stepX[(i + 3) % 6], ty2 = curY + stepY[(i + 3) % 6];
+				if (curBoard[tx1][ty1] == -1 && curBoard[tx2][ty2] == -1) return 1;
+			}
+		}
+		if (curBoard[tmpX][tmpY] == -1) {
+			ctr2++;
+			ctr1 = 0;
+			if (ctr2 == 4) {
+				return 1;
+			}
+			else if (ctr2 == 3) {
+				int tx = curX + stepX[(i + 2) % 6], ty = curY + stepY[(i + 2) % 6];
+				if (curBoard[tx][ty] == 1) return 1;
+			}
+			else if (ctr2 == 2) {
+				int tx1 = curX + stepX[(i + 2) % 6], ty1 = curY + stepY[(i + 2) % 6];
+				int tx2 = curX + stepX[(i + 3) % 6], ty2 = curY + stepY[(i + 3) % 6];
+				if (curBoard[tx1][ty1] == 1 && curBoard[tx2][ty2] == 1) return 1;
+			}
+		}
+	}
+}
+
+void Calc_Potential() { // 计算双威胁值 用到CurBoard
+	// 初始化
+	for (int i = 0; i <= 10; i++) 
+		for (int j = 0; j <= 10; j++) 
+			lowerB[i][j] = lowerR[i][j] = upperB[i][j] = upperR[i][j] = 1e9;
+}
+
+void Init() { // 初始化 EmptyGrid 把所有空节点加入
+	for (int i = 0; i <= 10; i++)
+		for (int j = 0; j <= 10; j++)
+			if (board[i][j] == 0)
+				EmptyGrid.push_back(Coord(i,j));
+	return;
+}
+
+void MCTS() {
+	int limit = 1000;
+
+	TreeNode* root = new TreeNode(-1, -1, -1, nullptr); // 初始化根节点（根节点的玩家记为对方）
+
+	for (int i = 0; i < limit; i++) { // 姑且先循环固定的次数
+
+		/* 预处理 */
+		TreeNode* node = root;
+		// UntriedMoves 和 curBoard: 用来记录待扩展节点所对应的状态 随Select的进行而更新 并在Simulate时使用
+		UntriedMoves = EmptyGrid; 
+		memcpy(curBoard, board, sizeof(board));
+
+		/* Select部分 */
+		while (!node->children.empty()) {
+			node = node->Select();
+			// 更新 UntriedMoves （能简化吗？）
+			for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end(); iter++) {
+				if (iter->x == node->move_x && iter->y == node->move_y) {
+					UntriedMoves.erase(iter);
+					break;
+				}
+			}
+			curBoard[node->move_x][node->move_y] = node->player; // 更新curBoard
+		}
+
+		if (node == nullptr) { // 某次Select返回的是nullptr 理论上来说不可能
+			return;
+		}
+
+		/* Expand 部分 */
+		if (node->n >= counter) {
+			// 只有一个节点被模拟了足够的次数时, 才进行扩展
+			node = node->Expand();
+		}
+
+
+		if (node == nullptr) {
+			// 这个叶节点扩展不出来一个节点, 也就是说, 该节点表示的状态是一个摆满棋子的棋盘
+			return;
+		}
+
+		/* Simulate 部分 */
+		// memcpy(curBoard, board, sizeof(board)); 没必要还原吧
+		double result = node->Simulate();
+
+		/* BackPropagate 部分 */
+		node->BackPropagate(result);
+	}
+
+	/* 选出根节点的最优子节点并更新new_x, new_y */
+	
+	TreeNode* BestChild = nullptr;
+	int MaxVisit = -1;
+	for (auto child : root->children) {
+		if (child->n > MaxVisit) {
+			MaxVisit = child->n;
+			BestChild = child;
+		}
+	}
+	if (BestChild) {
+		new_x = BestChild->move_x;
+		new_y = BestChild->move_y;
+	}
+	else {
+		Coord fallback = EmptyGrid[rand() % EmptyGrid.size()];
+		new_x = fallback.x;
+		new_y = fallback.y;
+	}
+
+	return;
+}
+
+/* End Part3 */
+
+int main(){
+	int x, y, n;
+	//恢复目前的棋盘信息
+	cin >> n;
+	for (int i = 0; i < n - 1; i++) {
+		cin >> x >> y; if (x != -1) board[x][y] = -1;	//对方
+		cin >> x >> y; if (x != -1) board[x][y] = 1;	//我方
+	}
+	cin >> x >> y;
+	if (x != -1) board[x][y] = -1;	//对方
+
+	//此时board[][]里存储的就是当前棋盘的所有棋子信息 且轮到我方下棋
+
+	/************************************************************************************/
+	/***********在下面填充你的代码，决策结果（本方将落子的位置）存入new_x和new_y中****************/
+
+	if (n == 1 && x == -1) { // 我方先手 下固定位置
+		cout << 1 << ' ' << 2 << endl;
+		return 0;
+	}
+
+	srand(time(0)); // 生成随机数种子
+
+	Init(); // 初始化EmptyGrod
+
+	MCTS(); // 蒙特卡洛树搜索
+
+	/***********在上方填充你的代码，决策结果（本方将落子的位置）存入new_x和new_y中****************/
+	/************************************************************************************/
+
+	// 向平台输出决策结果
+	cout << new_x << ' ' << new_y << endl;
+	return 0;
+}
+
+
+/*
+
+			if (UntriedMoves.empty())break; // 终止条件 说不定可以在此进行剪枝？
+			int t = rand() % UntriedMoves.size();
+			Coord move = UntriedMoves[t];
+			UntriedMoves.erase(UntriedMoves.begin() + t); // 纯随机扩展 可以采用什么其他策略
+
+*/
+
+
+/*
+while (!UntriedMoves.empty()) {
+	int r = rand() % tempEmpty.size();
+	Coord move = tempEmpty[r];
+	curBoard[move.x][move.y] = currPlayer;
+	tempEmpty.erase(tempEmpty.begin() + r);
+	currPlayer = -currPlayer;
+}
+*/
+
