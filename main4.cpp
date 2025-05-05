@@ -9,11 +9,10 @@
 
 using namespace std;
 
-const int SIZE = 15; 
-int board[SIZE][SIZE] = { 0 }; //我方1 对方-1 先手不定
-int new_x, new_y; // 输出
-
 /* Part 1 全局变量 */
+
+// 输出
+int new_x, new_y;
 
 // 扩展时的参数
 const int counter = 30; // 在被模拟多少次后扩展
@@ -22,6 +21,8 @@ const int counter = 30; // 在被模拟多少次后扩展
 auto start = chrono::steady_clock::now(), stops = chrono::steady_clock::now();// 计时
 
 // 记录棋盘信息
+const int SIZE = 15;
+int board[SIZE][SIZE] = { 0 }; //我方1 对方-1 先手不定
 struct Coord {
 	int x, y;
 	Coord(int xx = -1, int yy = -1) { x = xx, y = yy; }
@@ -60,7 +61,7 @@ int BlueAct1[SIZE][SIZE] = { 0 }, BlueAct2[SIZE][SIZE] = { 0 }, RedAct1[SIZE][SI
 int vis[SIZE][SIZE] = { 0 }, FloodVis[SIZE][SIZE] = { 0 };
 
 // 选下一步棋
-vector<Coord> MustDone, HighVal, MidVal, LowVal, ; // 给所有可行的下一步棋分类 | （对后两者的存在的必要性保持怀疑）
+vector<Coord> MustDone, HighVal, MidVal, LowVal; // 给所有可行的下一步棋分类 | （对后两者的存在的必要性保持怀疑）
 
 /*
 必做：几乎一定会获胜或者几乎一定是最优的情况（以70%的概率执行这个动作）
@@ -116,12 +117,12 @@ public:
 
 	TreeNode* Expand() {
 
-		// 初始化 把Simulate中的策略也应用在Expand中
+		/* 初始化 把Simulate中的策略也应用在Expand中 */
 		TreeNode* ChosenChild = nullptr;
 		MustDone.clear();
 		HighVal.clear();
 		MidVal.clear();
-		LowVal.clear();
+		// LowVal.clear();
 
 		for (int i = 0; i < UntriedMoves.size(); i++) { 
 			/* Simulate中的两个优化同样可以适用于Expand */
@@ -133,8 +134,6 @@ public:
 				continue;
 			}
 
-			// 这里计算每个节点的效益 然后放入HighVal LowVal MustDone 
-
 			/* 向搜素树添加节点 */
 
 			TreeNode* child = new TreeNode(move_x, move_y, -player, this); // 子节点玩家对当前玩家取反
@@ -142,6 +141,16 @@ public:
 
 			/* 根据不同概率 随机从 MustDone HighVal LowVal 中选一个给ChosenChild赋值 */
 
+		}
+
+		/* 通过策略选择扩展的点 */
+		int nextx, nexty;
+		ChoosePos(&nextx, &nexty);
+		for (int i = 0; i < children.size(); i++) {
+			if (children[i]->move_x == nextx && children[i]->move_y == nexty) {
+				ChosenChild = children[i];
+				break;
+			}
 		}
 		return ChosenChild;
 	}
@@ -163,7 +172,7 @@ public:
 			MustDone.clear();
 			HighVal.clear();
 			MidVal.clear();
-			LowVal.clear();
+			// LowVal.clear();
 
 			Capture(lastX, lastY, -lastplayer); // 找出被捕获的点
 
@@ -175,13 +184,10 @@ public:
 				}
 			}
 
-			int curX = -1, curY = -1;
-
-			// 这里计算每个节点的效益 然后放入HighVal LowVal MustDone 
-
-			ChoosePos(&curX, &curY);
-
 			/* 根据不同概率 随机从 MustDone HighVal LowVal 中选一个给curX 和 curY 赋值 */
+
+			int curX, curY;
+			ChoosePos(&curX, &curY);
 
 			/* 更新 */
 			for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end(); iter++) { //更新 UntriedMoves
@@ -220,6 +226,18 @@ int bridgeY1[6] = { 1, 0, 0, 1,-1, 1 };
 int bridgeX2[6] = { 0, 0, 1, 1, 1, 1 };
 int bridgeY2[6] = { -1, 1,-1, 0, 0,-1 };
 
+bool jdg1(int x, int y);
+
+bool jdg2(int x, int y);
+
+bool jdg3(int x, int y);
+
+bool jdg4(int x, int y);
+
+void Flood(int x, int y, int s, int mark);
+
+void UpdateAdj(int tx, int ty, int mark);
+
 void Capture(int lastX, int lastY, int curPl); 
 
 bool Invalid(int curX, int curY);
@@ -235,6 +253,8 @@ int TrytoMerge(int x, int y, int curPl);
 void MCTS(int lstX, int lstY);
 
 /* End Part3 */
+
+/* Part4 主函数 */
 
 int main() {
 
@@ -287,7 +307,60 @@ int main() {
 
 }
 
-/* Part4 函数实现 */
+/* End Part4 */
+
+/* Part5 函数实现 */
+
+// 判定x,y是否越界 越界返回 0
+bool jdg1(int x, int y) {
+	return x > 0 && (x <= 11 + 1) && y > 0 && y <= 11; // 对于白色的第一条边ptt，X<=5+1是边界 
+}
+
+bool jdg2(int x, int y) {
+	return x >= 0 && x <= 11 && y > 0 && y <= 11;
+}
+
+bool jdg3(int x, int y) {
+	return x > 0 && x <= 11 && y > 0 && (y <= 11 + 1);
+}
+
+bool jdg4(int x, int y) {
+	return x > 0 && x <= 11 && y >= 0 && y <= 11;
+}
+
+
+void Flood(int x, int y, int s, int mark) {
+	FloodVis[x][y] = 1;
+	for (int i = 0; i < 6; i++) {
+		int tx = x + stepX[i], ty = y + stepY[i];
+		if (mark == 1) if ((!jdg1(tx, ty)) || FloodVis[tx][ty] || (tempBoard[tx][ty] == -1))continue;
+		if (mark == 2) if ((!jdg2(tx, ty)) || FloodVis[tx][ty] || (tempBoard[tx][ty] == -1))continue;
+		if (mark == 3) if ((!jdg3(tx, ty)) || FloodVis[tx][ty] || (tempBoard[tx][ty] == 1))continue;
+		if (mark == 4) if ((!jdg4(tx, ty)) || FloodVis[tx][ty] || (tempBoard[tx][ty] == 1))continue;
+		FloodVis[tx][ty] = 1;
+		if ((tempBoard[tx][ty] == 1 && mark <= 2) || (tempBoard[tx][ty] == -1 && mark > 2)) {
+			Flood(tx, ty, s, mark);
+			continue; // 个人觉得这个加不加不太影响实际结果
+		}
+		else if (tempBoard[tx][ty] == 0) {
+			fx.push(tx);
+			fy.push(ty);
+		}
+	}
+}
+
+void UpdateAdj(int tx, int ty, int mark) {
+	vis[tx][ty] = 1;
+	q.push({ tx,ty });
+	int tmp = Adj[tx][ty].top();
+	Adj[tx][ty].pop();
+	if (mark == 1)RedSide1[tx][ty] = Adj[tx][ty].top() + 1; // 用次大值更新
+	if (mark == 2)RedSide2[tx][ty] = Adj[tx][ty].top() + 1;
+	if (mark == 3)BlueSide1[tx][ty] = Adj[tx][ty].top() + 1;
+	if (mark == 4)BlueSide2[tx][ty] = Adj[tx][ty].top() + 1;
+	Adj[tx][ty].push(tmp); // 保留最大值不被删去
+}
+
 
 // 被捕获的位置 负责模拟时优化
 void Capture(int lastX, int lastY, int curPl) { // 传入上一步棋的状态, 判断上一步棋是否导致一个点被捕获
@@ -346,13 +419,34 @@ bool Invalid(int curX, int curY) { // 返回1说明（curX, curY）是无效位�
 	}
 }
 
-void ChoosePos(int& cx, int& cy) {
+void ChoosePos(int* cx, int* cy) { // 选择下一步的走法
 	
 	Calc_Potential(); // 调用函数计算潜力值和机动性
 
+	if (!MustDone.empty()) {
+		if (rand() % 10 >= 7) {  // 70% 的概率返回Mustdone中的内容
+			int r = (rand() % (MustDone.size() - 1));
+			*cx = MustDone[r].x, *cy = MustDone[r].y;
+			return;
+		}
+	}
 
+	if (!HighVal.empty()) {
+		if (rand() % 10 >= 8) {  // 80% 的概率返回HighVal中的内容
+			int r = (rand() % (HighVal.size() - 1));
+			*cx = HighVal[r].x, *cy = HighVal[r].y;
+			return;
+		}
+	}
 
+	if (!MidVal.empty()) {// 80% 的概率返回HighVal中的内容
+		int r = (rand() % (MidVal.size() - 1));
+		*cx = MidVal[r].x, * cy = MidVal[r].y;
+		return;
+	}
 
+	*cx = -1, * cy = -1;
+	return;
 }
 
 void Calc_Potential() { // 计算双威胁值 用到CurBoard
@@ -927,4 +1021,4 @@ void MCTS(int lstX, int lstY) {
 	return;
 }
 
-/* End Part4 */
+/* End Part5 */
