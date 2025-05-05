@@ -80,7 +80,7 @@ vector<Coord> MustDone, HighVal, MidVal, LowVal; // 给所有可行的下一步�
 
 /* Part2 函数声明 */
 
-int stepX[6] = { -1,-1, 0, 0, 1, 1 };
+int stepX[6] = {-1,-1, 0, 0, 1, 1 };
 int stepY[6] = { 0, 1,-1, 1,-1, 0 };
 int bridgeX1[6] = { -1,-1,-1,-1, 0, 0 };
 int bridgeY1[6] = { 1, 0, 0, 1,-1, 1 };
@@ -164,24 +164,23 @@ public:
 		MidVal.clear();
 		// LowVal.clear();
 
-		for (int i = 0; i < UntriedMoves.size(); i++) { 
-			/* Simulate中的两个优化同样可以适用于Expand */
-			Capture(move_y, move_x, -player); // 找出被捕获的点
-
-			if (Invalid(UntriedMoves[i].x, UntriedMoves[i].y) == 1) { // 找出无效的点
-				curBoard[UntriedMoves[i].x][UntriedMoves[i].y] = 1; // 给谁都无所谓, 干脆给我
-				UntriedMoves.erase(UntriedMoves.begin() + i); // 以后也不用考虑这个点了
-				continue;
+		for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end();) {
+			if (Invalid(iter->x, iter->y) == 1) {
+				cout << "I:" << iter->x << " " << iter->y << endl;
+				curBoard[iter->x][iter->y] = 1; // 给谁都无所谓, 干脆给我
+				iter = UntriedMoves.erase(iter); // 以后也不用考虑这个点了
 			}
+			else  iter++;
+		}
+
+		Capture(move_y, move_x, -player); // 找出被捕获的点
 
 			/* 向搜素树添加节点 */
-
-			TreeNode* child = new TreeNode(move_x, move_y, -player, this); // 子节点玩家对当前玩家取反
+		for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end(); iter++) {
+			TreeNode* child = new TreeNode(iter->x, iter->y, -player, this); // 子节点玩家对当前玩家取反
 			children.push_back(child);
-
-			/* 根据不同概率 随机从 MustDone HighVal LowVal 中选一个给ChosenChild赋值 */
-
 		}
+		/* 根据不同概率 随机从 MustDone HighVal LowVal 中选一个给ChosenChild赋值 */
 
 		/* 通过策略选择扩展的点 */
 		int nextx, nexty;
@@ -203,6 +202,8 @@ public:
 
 		while (1) { // 直到分出胜负才停
 
+			cout <<"Last"<<":"<<lastplayer <<" " << lastX << " " << lastY << endl;
+
 			/* 判断胜负（判断的是（lastX，lastY）这一步） */
 			if (TrytoMerge(lastX, lastY, lastplayer) != 0) {
 				return lastplayer * player; // -1 * -1 从表示对手的节点出发且对手赢了 | 1 * 1 从表示我的节点出发且我赢了
@@ -216,12 +217,17 @@ public:
 
 			Capture(lastX, lastY, -lastplayer); // 找出被捕获的点
 
-			for (int i = 0; i < UntriedMoves.size(); i++) {
-				if (Invalid(UntriedMoves[i].x, UntriedMoves[i].y) == 1) {
-					curBoard[UntriedMoves[i].x][UntriedMoves[i].y] = 1; // 给谁都无所谓, 干脆给我
-					UntriedMoves.erase(UntriedMoves.begin() + i); // 以后也不用考虑这个点了
-					continue;
+			for (int i = 0; i < MustDone.size();i++) {
+				cout <<"Must:" << MustDone[i].x << " " << MustDone[i].y << endl;
+			}
+
+			for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end();) {
+				if (Invalid(iter->x, iter->y) == 1) {
+					cout << "I:" << iter->x << " " << iter->y << endl;
+					curBoard[iter->x][iter->y] = 1; // 给谁都无所谓, 干脆给我
+					iter = UntriedMoves.erase(iter); // 以后也不用考虑这个点了
 				}
+				else  iter++;
 			}
 
 			/* 根据不同概率 随机从 MustDone HighVal LowVal 中选一个给curX 和 curY 赋值 */
@@ -270,9 +276,9 @@ int main() {
 		cin >> x >> y; if (x != -1) board[x][y] = -1;	//对方
 		if (i == 0) {
 			if (x == -1) {
-				mycolor = 1; // 对方先手, 我是蓝色
+				mycolor = -1;  // 我先手, 我是红色
 			}
-			else mycolor = -1; // 我先手, 我是红色
+			else mycolor = 1; // 对方先手, 我是蓝色
 		}
 		cin >> x >> y; if (x != -1) board[x][y] = 1;	//我方
 	}
@@ -370,7 +376,7 @@ void Capture(int lastX, int lastY, int curPl) { // 传入上一步棋的状态, 
 
 	int captureX, captureY, b1X, b1Y, b2X, b2Y;
 	for (int i = 0; i < 6; i++) {
-		captureX = lastX + stepX[i], captureY = lastY + stepX[i];
+		captureX = lastX + stepX[i], captureY = lastY + stepY[i];
 		b1X = lastX + bridgeX1[i], b1Y = lastY + bridgeY1[i];
 		b2X = lastX + bridgeX2[i], b2Y = lastY + bridgeY2[i];
 
@@ -387,39 +393,46 @@ bool Invalid(int curX, int curY) { // 返回1说明（curX, curY）是无效位�
 	for (int j = 0; j <= 12; j++) {
 		int i = j % 6;
 		int tmpX = curX + stepX[i], tmpY = curY + stepY[i];
+		if (tmpX < 0 || tmpY < 0 || tmpX > 10 || tmpY > 10) return 0; // 没想好边缘怎么处理
+		// 更新
+		if (curBoard[tmpX][tmpY] == 0) {
+			ctr1 = 0, ctr2 = 0;
+		}
 		if (curBoard[tmpX][tmpY] == 1) {
 			ctr1++;
 			ctr2 = 0;
-			if (ctr1 == 4) {
-				return 1;
-			}
-			else if (ctr1 == 3) {
-				int tx = curX + stepX[(i + 2) % 6], ty = curY + stepY[(i + 2) % 6];
-				if (curBoard[tx][ty] == -1) return 1;
-			}
-			else if (ctr1 == 2) {
-				int tx1 = curX + stepX[(i + 2) % 6], ty1 = curY + stepY[(i + 2) % 6];
-				int tx2 = curX + stepX[(i + 3) % 6], ty2 = curY + stepY[(i + 3) % 6];
-				if (curBoard[tx1][ty1] == -1 && curBoard[tx2][ty2] == -1) return 1;
-			}
 		}
 		if (curBoard[tmpX][tmpY] == -1) {
 			ctr2++;
 			ctr1 = 0;
-			if (ctr2 == 4) {
-				return 1;
-			}
-			else if (ctr2 == 3) {
-				int tx = curX + stepX[(i + 2) % 6], ty = curY + stepY[(i + 2) % 6];
-				if (curBoard[tx][ty] == 1) return 1;
-			}
-			else if (ctr2 == 2) {
-				int tx1 = curX + stepX[(i + 2) % 6], ty1 = curY + stepY[(i + 2) % 6];
-				int tx2 = curX + stepX[(i + 3) % 6], ty2 = curY + stepY[(i + 3) % 6];
-				if (curBoard[tx1][ty1] == 1 && curBoard[tx2][ty2] == 1) return 1;
-			}
+		}
+		// 判定
+		if (ctr1 == 4) {
+			return 1;
+		}
+		else if (ctr1 == 3) {
+			int tx = curX + stepX[(i + 2) % 6], ty = curY + stepY[(i + 2) % 6];
+			if (curBoard[tx][ty] == -1) return 1;
+		}
+		else if (ctr1 == 2) {
+			int tx1 = curX + stepX[(i + 2) % 6], ty1 = curY + stepY[(i + 2) % 6];
+			int tx2 = curX + stepX[(i + 3) % 6], ty2 = curY + stepY[(i + 3) % 6];
+			if (curBoard[tx1][ty1] == -1 && curBoard[tx2][ty2] == -1) return 1;
+		}
+		if (ctr2 == 4) {
+			return 1;
+		}
+		else if (ctr2 == 3) {
+			int tx = curX + stepX[(i + 2) % 6], ty = curY + stepY[(i + 2) % 6];
+			if (curBoard[tx][ty] == 1) return 1;
+		}
+		else if (ctr2 == 2) {
+			int tx1 = curX + stepX[(i + 2) % 6], ty1 = curY + stepY[(i + 2) % 6];
+			int tx2 = curX + stepX[(i + 3) % 6], ty2 = curY + stepY[(i + 3) % 6];
+			if (curBoard[tx1][ty1] == 1 && curBoard[tx2][ty2] == 1) return 1;
 		}
 	}
+	return 0; 
 }
 
 void ChoosePos(int* cx, int* cy) { // 选择下一步的走法
@@ -428,7 +441,7 @@ void ChoosePos(int* cx, int* cy) { // 选择下一步的走法
 
 	if (!MustDone.empty()) {
 		if (rand() % 10 >= 7) {  // 70% 的概率返回Mustdone中的内容
-			int r = (rand() % (MustDone.size() - 1));
+			int r = (rand() % (MustDone.size()));
 			*cx = MustDone[r].x, *cy = MustDone[r].y;
 			return;
 		}
@@ -850,23 +863,24 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 
 	/* 更新 HighVal 和 MidVal */
 
+	//记得恢复原来的坐标(0-10)
 	for (int i = 1; i <= 2; i++) { // 每个队列选两个
 		if (!Redpl.empty()) {
-			HighVal.push_back(Coord(Redpl.top().x, Redpl.top().y));
+			HighVal.push_back(Coord(Redpl.top().x - 1, Redpl.top().y - 1));
 			Redpl.pop();
 		}
 		if (!Bluepl.empty()) {
-			HighVal.push_back(Coord(Bluepl.top().x, Bluepl.top().y));
+			HighVal.push_back(Coord(Bluepl.top().x - 1, Bluepl.top().y - 1));
 			Bluepl.pop();
 		}
 
 	}
 	while (!Redpl.empty()) {
-		MidVal.push_back(Coord(Redpl.top().x, Redpl.top().y));
+		MidVal.push_back(Coord(Redpl.top().x - 1, Redpl.top().y - 1));
 		Redpl.pop();
 	}
 	while (!Bluepl.empty()) {
-		MidVal.push_back(Coord(Bluepl.top().x, Bluepl.top().y));
+		MidVal.push_back(Coord(Bluepl.top().x - 1, Bluepl.top().y - 1));
 		Bluepl.pop();
 	}
 
@@ -878,55 +892,57 @@ int get_fa(int x) {
 }
 
 int TrytoMerge(int x, int y, int curPl) { // 尝试把（x,y）与其相邻点合并 | 返回1表示游戏结束
-	int fathers = -1;
-	int flag1 = 0, flag2 = 0; // 是否接触到下半边 是否接触到上半边
 
+	int flag1 = 0, flag2 = 0; // 是否接触到下半边 是否接触到上半边
 	// fa中 0,1,2,3分别代表  board[0][0-10] / board[10][0-10]/ board[0-10][0] / board[0-10][10]
 	// mycolor  -1 表示我的颜色是board[0][0 - 10]和board[10][0 - 10](红色) / 1 表示我的颜色是board[0 - 10][0]和board[0 - 10][10](蓝色)
 	// （x,y）判断是否到达自己的边缘 如果到达则记录
-	if (x == 0 && ((mycolor == -1 && curPl == 1) || (mycolor == 1 && curPl == -1))) {
-		fa[x * 10 + y + 4] = 0;
+	if (x == 0 && ((mycolor == -1 && curPl == 1) || (mycolor == 1 && curPl == -1))) { // 0 边
 		flag1 = 1;
+		if (get_fa(x * 11 + y + 4) == 1) {
+			return 1;
+		}
+		else fa[get_fa(x * 11 + y + 4)] = 0;
 	}
-	if (x == 10 && ((mycolor == -1 && curPl == 1) || (mycolor == 1 && curPl == -1))) {
-		fa[x * 10 + y + 4] = 1;
+	if (x == 10 && ((mycolor == -1 && curPl == 1) || (mycolor == 1 && curPl == -1))) { // 1 边
 		flag2 = 1;
+		if (get_fa(x * 11 + y + 4) == 0) {
+			return 1;
+		}
+		else fa[get_fa(x * 11 + y + 4)] = 1;
 	}
-	if (y == 0 && ((mycolor == -1 && curPl == -1) || (mycolor == 1 && curPl == 1))) {
-		fa[x * 10 + y + 4] = 2;
+	if (y == 0 && ((mycolor == -1 && curPl == -1) || (mycolor == 1 && curPl == 1))) { // 2 边
 		flag1 = 1;
+		if (get_fa(x * 11 + y + 4) == 3) {
+			return 1;
+		}
+		else fa[get_fa(x * 11 + y + 4)] = 2;
 	}
-	if (y == 10 && ((mycolor == -1 && curPl == -1) || (mycolor == 1 && curPl == 1))) {
-		fa[x * 10 + y + 4] = 3;
+	if (y == 10 && ((mycolor == -1 && curPl == -1) || (mycolor == 1 && curPl == 1))) { // 3 边
 		flag2 = 1;
+		if (get_fa(x * 11 + y + 4) == 2) {
+			return 1;
+		}
+		else fa[get_fa(x * 11 + y + 4)] = 3;
 	}
 
-	//查询所有与（x,y）相邻的位置
 	for (int i = 0; i < 6; i++) {
 		int tmpX = x + stepX[i], tmpY = y + stepY[i];
-
 		if (tmpX < 0 || tmpY < 0 || tmpX > 10 || tmpY > 10) continue; // 排除不合法位置
 		if (curBoard[tmpX][tmpY] != curPl)continue; // 排除对手棋子 和 空位置
 
-		if (get_fa(tmpX * 10 + tmpY + 4) == 0 || get_fa(tmpX * 10 + tmpY + 4) == 2) { flag1 = 1; fathers = get_fa(tmpX * 10 + tmpY + 4); } // 判断是否有到边上的点
-		if (get_fa(tmpX * 10 + tmpY + 4) == 1 || get_fa(tmpX * 10 + tmpY + 4) == 3) { flag2 = 1; fathers = get_fa(tmpX * 10 + tmpY + 4); }
+		int tmpfa = get_fa(tmpX * 11 + tmpY + 4), curfa = get_fa(x * 11 + y + 4);
+		if (tmpfa == 0 || tmpfa == 2) { flag1 = 1; } // 判断是否有到边上的点
+		if (tmpfa == 1 || tmpfa == 3) { flag2 = 1; }
 
-		// 这个判断同时保证了, 6次循环中fathers最多只可能有一个值(否则就会从这个判定返回)
 		if (flag1 == 1 && flag2 == 1) { // 如果此时上下已经连通 说明已经胜利 直接返回
 			return 1;
 		}
-
-		if (fathers != 0) { // 如果(x,y)的这个相邻点连着一个边, 就让这个边当(x,y)的父亲
-			fa[x * 10 + y + 4] = fathers;
+		if (tmpfa <= 3) {
+			fa[curfa] = tmpfa;
 		}
-		else { // 如果(x,y)的这个相邻点并没有连着一个边, 就让(x,y)当相邻点(所对应并查集)的父亲
-			fa[get_fa(tmpX * 10 + tmpY + 4)] = get_fa(x * 10 + y + 4);
-		}
-
-		fathers = -1;
-
+		else fa[tmpfa] = curfa;
 	}
-
 	return 0;
 }
 
@@ -934,28 +950,50 @@ void MCTS(int lstX, int lstY) {
 
 	TreeNode* root = new TreeNode(lstX, lstY, -1, nullptr); // 初始化根节点（根节点的玩家记为对方）
 
+	int ctr = 0; // 删
+
 	while (1) {
+
+		ctr++;
+
+		cout << ctr << endl;
 
 		/* 计时 */
 		stops = chrono::steady_clock::now();
 
-		if (chrono::duration_cast<chrono::milliseconds>(stops - start).count() >= 999) { // 提前1ms结束
+		if (chrono::duration_cast<chrono::milliseconds>(stops - start).count() >= 99999) { // 提前1ms结束
 			return;
 		}
 
 		/* 预处理 */
-		TreeNode* node = root;
 		// curBoard: 用来记录待扩展节点所对应的状态 随Select的进行而更新 并在Simulate时使用
+		TreeNode* node = root;
 		memcpy(curBoard, board, sizeof(board));
+		
 		// 初始化并查集
-		for (int i = 0; i < 10 * 10 + 4; i++) fa[i] = i;
+		for (int i = 0; i < 11 * 11 + 4; i++) fa[i] = i;
+		//fa[0] = 0, fa[1] = 1, fa[2] = 2, fa[3] = 3;
+
 		for (int i = 0; i <= 10; i++) {
 			for (int j = 0; j <= 10; j++) {
+				// cout << mycolor << " " << i << " " << j <<" " << board[i][j] << endl;
 				if (board[i][j] != 0) TrytoMerge(i, j, board[i][j]);
 			}
 		}
 
+		/*
+		for (int ii = 0; ii <= 10; ii++) {
+			for (int jj = 0; jj <= 10; jj++) {
+				cout << fa[ii * 11 + jj + 4]<<" ";
+			}
+			cout << endl;
+		}
+		*/
+
 		/* Select部分 */
+
+		cout << "Selection"<<endl;
+
 		int alreadyWin = 0;
 		while (!node->children.empty()) {
 			node = node->Select();
@@ -976,7 +1014,11 @@ void MCTS(int lstX, int lstY) {
 			return;
 		}
 
+		// cout << node->move_x << " " << node->move_y << endl;
+
 		/* Expand 部分 */
+
+		cout << "Expand" << endl;
 
 		// 初始化UntriedMoves (没错 我把UnusedGrid删了 主要是感觉没啥用)
 		for (int i = 0; i <= 10; i++)
@@ -988,16 +1030,19 @@ void MCTS(int lstX, int lstY) {
 			node = node->Expand();
 		}
 
-		if (node == nullptr) {
-			// 这个叶节点扩展不出来一个节点, 也就是说, 该节点表示的状态是一个摆满棋子的棋盘
+		if (node == nullptr) { // 这个叶节点扩展不出来一个节点, 也就是说, 该节点表示的状态是一个摆满棋子的棋盘
 			return;
 		}
 
 		/* Simulate 部分 */
 
+		cout << "Simulate" << endl;
+
 		double result = node->Simulate();
 
 		/* BackPropagate 部分 */
+
+		cout << "BP" << endl;
 
 		node->BackPropagate(result);
 	}
