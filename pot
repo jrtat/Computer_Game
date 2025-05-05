@@ -1,0 +1,567 @@
+#include <iostream>
+#include <string>
+#include <chrono>
+#include <cstdlib>
+#include <vector>
+#include <algorithm>
+#include <queue>
+using namespace std;
+const int SIZE = 15;
+int curBoard[SIZE][SIZE] = { 0 };
+int mycolor = 0;
+
+struct Coord {
+	int x, y;
+	Coord(int xx = -1, int yy = -1) { x = xx, y = yy; }
+	Coord(const Coord& tmp) { x = tmp.x, y = tmp.y; }
+	Coord& operator = (const Coord& other) {
+		return *this;
+	}
+};
+
+vector<Coord> UntriedMoves; // 用来记录没下过的点
+
+int stepX[6] = { -1,-1, 0, 0, 1, 1 };
+int stepY[6] = { 0, 1,-1, 1,-1, 0 };
+
+vector<Coord> MustDone, HighVal, MidVal, LowVal; // 给所有可行的下一步棋分类 | （对后两者的存在的必要性保持怀疑）
+
+/* 上面的部分不用管 都来自 main 中*/ 
+
+// 全局变量
+
+struct Cmp {
+	int pot, act, x, y;
+	Cmp(int v1 = 0, int v2 = 0, int t1 = 0, int t2 = 0) {
+		pot = v1, act = v2, x = t1, y = t2;
+	}
+	bool operator < (const Cmp &tmp)const {
+		if (tmp.pot == pot) return tmp.act < act;
+		return tmp.pot < pot;
+	}
+};
+
+int tempBoard[SIZE][SIZE] = { 0 }; //白1,黑-1
+int BlueSide1[SIZE][SIZE] = { 0 }, BlueSide2[SIZE][SIZE] = { 0 }, RedSide1[SIZE][SIZE] = { 0 }, RedSide2[SIZE][SIZE] = { 0 }; //双距离
+int BlueAct1[SIZE][SIZE] = { 0 }, BlueAct2[SIZE][SIZE] = { 0 }, RedAct1[SIZE][SIZE] = { 0 }, RedAct2[SIZE][SIZE] = { 0 }; //双距离
+// int Pot1[SIZE][SIZE] = { 0 }, Pot2[SIZE][SIZE] = { 0 }, Act1[SIZE][SIZE] = { 0 }, Act2[SIZE][SIZE] = { 0 };
+int vis[SIZE][SIZE] = { 0 }, FloodVis[SIZE][SIZE] = { 0 };
+
+queue<Coord> q; // 存放当前已被更新, 但没拿来更新其相邻位置的位置
+queue<int> fx, fy;
+priority_queue<int, vector<int>, greater<int> >Adj[SIZE][SIZE]; // 存放每个点被其他点更新时, 所对应的双距离, 取次小值作为最终双距离
+priority_queue<Cmp> Redpl, Bluepl;
+
+// 判定x,y是否越界 越界返回 0
+bool jdg1 (int x,int y) { 
+	return x > 0 && (x <= 5 + 1) && y > 0 && y <= 5; // 对于白色的第一条边ptt，X<=5+1是边界 
+}
+
+bool jdg2(int x, int y) {
+	return x >= 0 && x <= 5 && y > 0 && y <= 5; 
+}
+
+bool jdg3(int x, int y) {
+	return x > 0 && x <= 5 && y > 0 && (y <= 5 + 1); 
+}
+
+bool jdg4(int x, int y) {
+	return x > 0 && x <= 5 && y >= 0 && y <= 5; 
+}
+
+
+void Flood(int x,int y,int s, int mark) {
+	FloodVis[x][y] = 1;
+	for (int i = 0; i < 6; i++){
+		int tx = x + stepX[i], ty = y + stepY[i];
+		if (mark == 1) if ((!jdg1(tx, ty)) || FloodVis[tx][ty] || (tempBoard[tx][ty] == -1))continue;
+		if (mark == 2) if ((!jdg2(tx, ty)) || FloodVis[tx][ty] || (tempBoard[tx][ty] == -1))continue;
+		if (mark == 3) if ((!jdg3(tx, ty)) || FloodVis[tx][ty] || (tempBoard[tx][ty] == 1))continue;
+		if (mark == 4) if ((!jdg4(tx, ty)) || FloodVis[tx][ty] || (tempBoard[tx][ty] == 1))continue;
+		FloodVis[tx][ty] = 1;
+		if ((tempBoard[tx][ty] == 1 && mark <= 2)||(tempBoard[tx][ty] == -1 && mark > 2)){
+			Flood(tx, ty, s, mark);
+			continue; // 个人觉得这个加不加不太影响实际结果
+		}
+		else if (tempBoard[tx][ty] == 0) {
+			fx.push(tx);
+			fy.push(ty);
+		}
+	}
+}
+
+void UpdateAdj(int tx, int ty, int mark) {
+	vis[tx][ty] = 1;
+	q.push({ tx,ty });
+	int tmp = Adj[tx][ty].top();
+	Adj[tx][ty].pop();
+	if (mark == 1)RedSide1[tx][ty] = Adj[tx][ty].top() + 1; // 用次大值更新
+	if (mark == 2)RedSide2[tx][ty] = Adj[tx][ty].top() + 1;
+	if (mark == 3)BlueSide1[tx][ty] = Adj[tx][ty].top() + 1; 
+	if (mark == 4)BlueSide2[tx][ty] = Adj[tx][ty].top() + 1; 
+	Adj[tx][ty].push(tmp); // 保留最大值不被删去
+}
+
+int main() {
+
+	/* 初始化 */
+	memset(BlueSide1,0x3f,sizeof(BlueSide1));
+	memset(BlueSide2,0x3f,sizeof(BlueSide2));
+	memset(RedSide1,0x3f,sizeof(RedSide1));
+	memset(RedSide2,0x3f,sizeof(RedSide2));
+	memset(BlueSide1, 0x3f, sizeof(BlueAct1));
+	memset(BlueSide2, 0x3f, sizeof(BlueAct2));
+	memset(RedSide1, 0x3f, sizeof(RedAct1));
+	memset(RedSide2, 0x3f, sizeof(RedAct2));
+
+
+	// 一个新棋盘 保证 红色为1 蓝色为-1 并且下标范围为1-5, 而 0 和 12 行 是边的范围
+	for (int i = 0; i <= 10; i++) {
+		for (int j = 0; j <= 10; j++) {
+			if (mycolor == 1) {
+				tempBoard[i + 1][j + 1] = curBoard[i][j];
+			}
+			else tempBoard[i + 1][j + 1] = -curBoard[i][j];
+		}
+	}
+
+	/* 测试 */
+
+	tempBoard[2][3] = -1;
+	tempBoard[2][4] = -1;
+	// tempBoard[3][4] = -1;
+	// tempBoard[3][5] = -1;
+
+	/* Part1 预处理上红边 */
+
+	// 初始化vis 初始化对边
+	memset(vis, 0, sizeof(vis));
+	for(int i=1; i<=5; i++) {
+		tempBoard[5+1][i]=1; 
+	}
+
+	// 预处理首行
+	for(int i=1; i<=5; i++) { 
+		vis[1][i]=1; 
+		if (tempBoard[1][i] == 0) { RedSide1[1][i] = 1; RedAct1[1][i] = 2; } //初始化双距离和机动性 //
+		if(tempBoard[1][i]==1)RedSide1[1][i]=0;
+		if(tempBoard[1][i]!=-1) {
+			// 更新与之相邻的位置
+			for (int j = 0; j < 6; j++) {
+				int tx = 1 + stepX[j], ty = i + stepY[j];
+				if ((!jdg1(tx, ty)) || vis[tx][ty] || (tempBoard[tx][ty] == -1))continue; // 排除越界 对方棋子 已被更新 三种情况
+				Adj[tx][ty].push(RedSide1[1][i]); // 更新 Adj[tx][ty]
+				if(tempBoard[tx][ty]==1) { // 如果更新到同色棋子, 通过一次搜素找到一团同色棋子
+					memset(FloodVis,0,sizeof(FloodVis));
+					for (int k = 0; k < 6; k++) { // 防止同一棋子被重复计数
+						int ttx = 1 + stepX[k], tty = i + stepY[k];
+						if (tempBoard[ttx][tty] == 0) FloodVis[ttx][tty] = 1;
+					}
+					Flood(tx, ty, RedSide1[1][i],1); 
+					while(!fx.empty()){
+						int ti = fx.front(), tj = fy.front();
+						fx.pop(), fy.pop();
+						Adj[ti][tj].push(RedSide1[1][i]);
+						if (!vis[ti][tj] && tempBoard[ti][tj] == 0 && Adj[ti][tj].size() >= 2) { // 更新双距离数组
+							UpdateAdj(ti, tj, 1);
+						}
+					}
+					continue;
+				}
+				if(!vis[tx][ty]&&tempBoard[tx][ty]==0&&Adj[tx][ty].size()>=2) { // 更新双距离数组
+					UpdateAdj(tx, ty, 1);
+				}
+			}
+		}
+	}
+	while(!q.empty()) {
+		int x=q.front().x,y=q.front().y; 
+		q.pop();
+		for (int j = 0; j < 6; j++) {
+			int tx = x + stepX[j], ty = y + stepY[j];
+			if ((!jdg1(tx, ty)) || vis[tx][ty] || (tempBoard[tx][ty] == -1))continue; // 排除越界 对方棋子 已被更新 三种情况
+			Adj[tx][ty].push(RedSide1[x][y]);
+			if(tempBoard[tx][ty]==1) {
+				memset(FloodVis,0,sizeof(FloodVis));
+				for (int k = 0; k < 6; k++) { // 防止同一棋子被重复计数
+					int ttx = x + stepX[k], tty = y + stepY[k];
+					if (tempBoard[ttx][tty] == 0) FloodVis[ttx][tty] = 1;
+				}
+				Flood(tx,ty,RedSide1[x][y],1);
+				while (!fx.empty()) {
+					int ti = fx.front(), tj = fy.front();
+					fx.pop(), fy.pop();
+					Adj[ti][tj].push(RedSide1[x][y]);
+					if(!vis[ti][tj]&&Adj[ti][tj].size()>=2) { // 更新双距离数组
+						UpdateAdj(ti, tj, 1);
+					}
+				}
+				continue;
+			}
+			if (!vis[tx][ty] && tempBoard[tx][ty] == 0 && Adj[tx][ty].size() >= 2) {// 更新双距离数组
+				UpdateAdj(tx, ty, 1);
+			}
+		}
+	}
+
+	// 算机动性 顺带清空Adj
+	for (int i = 1; i <= 5; i++) { 
+		for (int j = 1; j <= 5; j++) {
+			if (tempBoard[i][j] == 0) { // 算机动性
+				while (!Adj[i][j].empty() && Adj[i][j].top()+1 <= RedSide1[i][j]) {
+					RedAct1[i][j] += 1;
+					Adj[i][j].pop();
+				}
+			}
+			while (!Adj[i][j].empty()) Adj[i][j].pop(); // 清空Adj
+		}
+	}
+
+	// 恢复对边
+	for (int i = 1; i <= 5; i++) {
+		tempBoard[5 + 1][i] = 0;
+	}
+
+	// Part2 预处理下红边
+
+	// 初始化vis 初始化对边
+	memset(vis, 0, sizeof(vis));
+	for (int i = 1; i <= 5; i++) {
+		tempBoard[0][i] = 1;
+	}
+
+	// 预处理首行
+	for (int i = 1; i <= 5; i++) {
+		vis[5][i] = 1; //
+		if (tempBoard[5][i] == 0){RedSide2[5][i] = 1;  RedAct2[5][i] = 2;} //初始化双距离和机动性 //
+		if (tempBoard[5][i] == 1)RedSide2[5][i] = 0; //
+		if (tempBoard[5][i] != -1) { //
+			// 更新与之相邻的位置
+			for (int j = 0; j < 6; j++) {
+				int tx = 5 + stepX[j], ty = i + stepY[j]; // 
+				if ((!jdg2(tx, ty)) || vis[tx][ty] || (tempBoard[tx][ty] == -1))continue; // 排除越界 对方棋子 已被更新 三种情况 //
+				Adj[tx][ty].push(RedSide2[5][i]); // 更新 Adj[tx][ty] //
+				if (tempBoard[tx][ty] == 1) { // 如果更新到同色棋子, 通过一次搜素找到一团同色棋子 //
+					memset(FloodVis, 0, sizeof(FloodVis));
+					for (int k = 0; k < 6; k++) { // 防止同一棋子被重复计数
+						int ttx = 5 + stepX[k], tty = i + stepY[k];
+						if (tempBoard[ttx][tty] == 0) FloodVis[ttx][tty] = 1;
+					}
+					Flood(tx, ty, RedSide2[5][i],2); //
+					while (!fx.empty()) {
+						int ti = fx.front(), tj = fy.front();
+						fx.pop(), fy.pop();
+						Adj[ti][tj].push(RedSide2[5][i]); // 
+						if (!vis[ti][tj] && tempBoard[ti][tj] == 0 && Adj[ti][tj].size() >= 2) { // 更新双距离数组
+							UpdateAdj(ti, tj, 2); // 
+						}
+					}
+					continue;
+				}
+				if (!vis[tx][ty] && tempBoard[tx][ty] == 0 && Adj[tx][ty].size() >= 2) { // 更新双距离数组
+					UpdateAdj(tx, ty, 2); // 
+				}
+			}
+		}
+	}
+	while (!q.empty()) {
+		int x = q.front().x, y = q.front().y;
+		q.pop();
+		for (int j = 0; j < 6; j++) {
+			int tx = x + stepX[j], ty = y + stepY[j];
+			if ((!jdg2(tx, ty)) || vis[tx][ty] || (tempBoard[tx][ty] == -1))continue; // 排除越界 对方棋子 已被更新 三种情况 //
+			Adj[tx][ty].push(RedSide2[x][y]); // 
+			if (tempBoard[tx][ty] == 1) { //
+				memset(FloodVis, 0, sizeof(FloodVis));
+				for (int k = 0; k < 6; k++) { // 防止同一棋子被重复计数
+					int ttx = x + stepX[k], tty = y + stepY[k];
+					if (tempBoard[ttx][tty] == 0) FloodVis[ttx][tty] = 1;
+				}
+				Flood(tx, ty, RedSide2[x][y],2); //
+				while (!fx.empty()) {
+					int ti = fx.front(), tj = fy.front();
+					fx.pop(), fy.pop();
+					Adj[ti][tj].push(RedSide2[x][y]); //
+					if (!vis[ti][tj] && Adj[ti][tj].size() >= 2) { // 更新双距离数组
+						UpdateAdj(ti, tj, 2); //
+					}
+				}
+				continue;
+			}
+			if (!vis[tx][ty] && tempBoard[tx][ty] == 0 && Adj[tx][ty].size() >= 2) {// 更新双距离数组
+				UpdateAdj(tx, ty, 2); //
+			}
+		}
+	}
+
+	// 算机动性 顺带清空Adj
+	for (int i = 1; i <= 5; i++) {
+		for (int j = 1; j <= 5; j++) {
+			if (tempBoard[i][j] == 0) { // 算机动性
+				while (!Adj[i][j].empty() && Adj[i][j].top() + 1 <= RedSide2[i][j]) { //
+					RedAct2[i][j] += 1; //
+					Adj[i][j].pop();
+				}
+			}
+			while (!Adj[i][j].empty()) Adj[i][j].pop(); // 清空Adj
+		}
+	}
+
+	// 恢复对边
+	for (int i = 1; i <= 5; i++) {
+		tempBoard[0][i] = 0;
+	}
+
+	// Part3 预处理上蓝边
+
+	// 初始化vis 初始化对边
+	memset(vis, 0, sizeof(vis));
+	for (int i = 1; i <= 5; i++) {
+		tempBoard[i][5 + 1] = -1;
+	}
+
+	// 预处理首行
+	for (int i = 1; i <= 5; i++) {
+		vis[i][1] = 1; // vis[i][1]
+		if (tempBoard[i][1] == 0) { BlueSide1[i][1] = 1;  BlueAct1[i][1] = 2; } //初始化双距离和机动性 //
+		if (tempBoard[i][1] == -1) BlueSide1[i][1] = 0; //
+		if (tempBoard[i][1] != 1) { //
+			// 更新与之相邻的位置
+			for (int j = 0; j < 6; j++) {
+				int tx = i + stepX[j], ty = 1 + stepY[j];
+				if ((!jdg3(tx, ty)) || vis[tx][ty] || (tempBoard[tx][ty] == 1))continue; // 排除越界 对方棋子 已被更新 三种情况 //
+				Adj[tx][ty].push(BlueSide1[i][1]); // 更新 Adj[tx][ty] //
+				if (tempBoard[tx][ty] == -1) { // 如果更新到同色棋子, 通过一次搜素找到一团同色棋子 //
+					memset(FloodVis, 0, sizeof(FloodVis));
+					for (int k = 0; k < 6; k++) { // 防止同一棋子被重复计数
+						int ttx = i + stepX[k], tty = 1 + stepY[k];
+						if (tempBoard[ttx][tty] == 0) FloodVis[ttx][tty] = 1;
+					}
+					Flood(tx, ty, BlueSide1[i][1],3); //
+					while (!fx.empty()) {
+						int ti = fx.front(), tj = fy.front();
+						fx.pop(), fy.pop();
+						Adj[ti][tj].push(BlueSide1[i][1]); // 
+						if (!vis[ti][tj] && tempBoard[ti][tj] == 0 && Adj[ti][tj].size() >= 2) { // 更新双距离数组
+							UpdateAdj(ti, tj, 3); // 
+						}
+					}
+					continue;
+				}
+				if (!vis[tx][ty] && tempBoard[tx][ty] == 0 && Adj[tx][ty].size() >= 2) { // 更新双距离数组
+					UpdateAdj(tx, ty, 3); //
+				}
+			}
+		}
+	}
+	while (!q.empty()) {
+		int x = q.front().x, y = q.front().y;
+		q.pop();
+		for (int j = 0; j < 6; j++) {
+			int tx = x + stepX[j], ty = y + stepY[j];
+			if ((!jdg3(tx, ty)) || vis[tx][ty] || (tempBoard[tx][ty] == 1))continue; // 排除越界 对方棋子 已被更新 三种情况 //
+			Adj[tx][ty].push(BlueSide1[x][y]); // 
+			if (tempBoard[tx][ty] == -1) { //
+				memset(FloodVis, 0, sizeof(FloodVis));
+				for (int k = 0; k < 6; k++) { // 防止同一棋子被重复计数
+					int ttx = x + stepX[k], tty = y + stepY[k];
+					if (tempBoard[ttx][tty] == 0) FloodVis[ttx][tty] = 1;
+				}
+				Flood(tx, ty, BlueSide1[x][y],3); //
+				while (!fx.empty()) {
+					int ti = fx.front(), tj = fy.front();
+					fx.pop(), fy.pop();
+					Adj[ti][tj].push(BlueSide1[x][y]); //
+					if (!vis[ti][tj] && Adj[ti][tj].size() >= 2) { // 更新双距离数组
+						UpdateAdj(ti, tj, 3); //
+					}
+				}
+				continue;
+			}
+			if (!vis[tx][ty] && tempBoard[tx][ty] == 0 && Adj[tx][ty].size() >= 2) {// 更新双距离数组
+				UpdateAdj(tx, ty, 3); //
+			}
+		}
+	}
+
+	// 算机动性 顺带清空Adj
+	for (int i = 1; i <= 5; i++) {
+		for (int j = 1; j <= 5; j++) {
+			if (tempBoard[i][j] == 0) { // 算机动性
+				while (!Adj[i][j].empty() && Adj[i][j].top() + 1 <= BlueSide1[i][j]) { //
+					BlueAct1[i][j] += 1; //
+					Adj[i][j].pop();
+				}
+			}
+			while (!Adj[i][j].empty()) Adj[i][j].pop(); // 清空Adj
+		}
+	}
+
+	// 恢复对边
+	for (int i = 1; i <= 5; i++) {
+		tempBoard[i][5 + 1] = 0;
+	}
+
+	// Part4 预处理下蓝边
+
+	// 初始化vis 初始化对边
+	memset(vis, 0, sizeof(vis));
+	for (int i = 1; i <= 5; i++) {
+		tempBoard[i][0] = -1;
+	}
+
+	// 预处理首行
+	for (int i = 1; i <= 5; i++) {
+		vis[i][5] = 1; // vis[i][1]
+		if (tempBoard[i][5] == 0) { BlueSide2[i][5] = 1;  BlueAct2[i][5] = 2; } //初始化双距离和机动性 //
+		if (tempBoard[i][5] == -1) BlueSide2[i][5] = 0; //
+		if (tempBoard[i][5] != 1) { //
+			// 更新与之相邻的位置
+			for (int j = 0; j < 6; j++) {
+				int tx = i + stepX[j], ty = 5 + stepY[j];
+				if ((!jdg4(tx, ty)) || vis[tx][ty] || (tempBoard[tx][ty] == 1))continue; // 排除越界 对方棋子 已被更新 三种情况 //
+				Adj[tx][ty].push(BlueSide2[i][5]); // 更新 Adj[tx][ty] //
+				if (tempBoard[tx][ty] == -1) { // 如果更新到同色棋子, 通过一次搜素找到一团同色棋子 //
+					memset(FloodVis, 0, sizeof(FloodVis));
+					for (int k = 0; k < 6; k++) { // 防止同一棋子被重复计数
+						int ttx = i + stepX[k], tty = 5 + stepY[k];
+						if (tempBoard[ttx][tty] == 0) FloodVis[ttx][tty] = 1;
+					}
+					Flood(tx, ty, BlueSide2[i][5],4); //
+					while (!fx.empty()) {
+						int ti = fx.front(), tj = fy.front();
+						fx.pop(), fy.pop();
+						Adj[ti][tj].push(BlueSide2[i][5]); // 
+						if (!vis[ti][tj] && tempBoard[ti][tj] == 0 && Adj[ti][tj].size() >= 2) { // 更新双距离数组
+							UpdateAdj(ti, tj, 4); // 
+						}
+					}
+					continue;
+				}
+				if (!vis[tx][ty] && tempBoard[tx][ty] == 0 && Adj[tx][ty].size() >= 2) { // 更新双距离数组
+					UpdateAdj(tx, ty, 4); //
+				}
+			}
+		}
+	}
+	while (!q.empty()) {
+		int x = q.front().x, y = q.front().y;
+		q.pop();
+		for (int j = 0; j < 6; j++) {
+			int tx = x + stepX[j], ty = y + stepY[j];
+			if ((!jdg4(tx, ty)) || vis[tx][ty] || (tempBoard[tx][ty] == 1))continue; // 排除越界 对方棋子 已被更新 三种情况 //
+			Adj[tx][ty].push(BlueSide2[x][y]); // 
+			if (tempBoard[tx][ty] == -1) { //
+				memset(FloodVis, 0, sizeof(FloodVis));
+				for (int k = 0; k < 6; k++) { // 防止同一棋子被重复计数
+					int ttx = x + stepX[k], tty = y + stepY[k];
+					if (tempBoard[ttx][tty] == 0) FloodVis[ttx][tty] = 1;
+				}
+				Flood(tx, ty, BlueSide2[x][y],4); //
+				while (!fx.empty()) {
+					int ti = fx.front(), tj = fy.front();
+					fx.pop(), fy.pop();
+					Adj[ti][tj].push(BlueSide2[x][y]); //
+					if (!vis[ti][tj] && Adj[ti][tj].size() >= 2) { // 更新双距离数组
+						UpdateAdj(ti, tj, 4); //
+					}
+				}
+				continue;
+			}
+			if (!vis[tx][ty] && tempBoard[tx][ty] == 0 && Adj[tx][ty].size() >= 2) {// 更新双距离数组
+				UpdateAdj(tx, ty, 4); //
+			}
+		}
+	}
+
+	// 算机动性 顺带清空Adj
+	for (int i = 1; i <= 5; i++) {
+		for (int j = 1; j <= 5; j++) {
+			if (tempBoard[i][j] == 0) { // 算机动性
+				while (!Adj[i][j].empty() && Adj[i][j].top() + 1 <= BlueSide2[i][j]) { //
+					BlueAct2[i][j] += 1; //
+					Adj[i][j].pop();
+				}
+			}
+			while (!Adj[i][j].empty()) Adj[i][j].pop(); // 清空Adj
+		}
+	}
+
+	// 恢复对边
+	for (int i = 1; i <= 5; i++) {
+		tempBoard[i][0] = 0;
+	}
+
+	for (int i = 0; i < UntriedMoves.size(); i++) {
+		int tx = UntriedMoves[i].x, ty = UntriedMoves[i].y;
+		Redpl.push(Cmp(RedSide1[tx][ty] + RedSide2[tx][ty], min(RedAct1[tx][ty],RedAct2[tx][ty]),tx,ty));
+		Bluepl.push(Cmp(BlueSide1[tx][ty] + BlueSide2[tx][ty], min(BlueAct1[tx][ty], BlueAct2[tx][ty]),tx,ty));
+	}
+
+	/* 更新 HighVal 和 MidVal */
+
+	for (int i = 1; i <= 2; i++) { // 每个队列选两个
+		if (!Redpl.empty()) {
+			HighVal.push_back(Coord(Redpl.top().x, Redpl.top().y));
+			Redpl.pop();
+		}
+		if (!Bluepl.empty()) {
+			HighVal.push_back(Coord(Bluepl.top().x, Bluepl.top().y));
+			Bluepl.pop();
+		}
+		
+	}
+	while (!Redpl.empty()) {
+		MidVal.push_back(Coord(Redpl.top().x, Redpl.top().y));
+		Redpl.pop();
+	}
+	while (!Bluepl.empty()) {
+		MidVal.push_back(Coord(Bluepl.top().x, Bluepl.top().y));
+		Bluepl.pop();
+	}
+
+	/* 测试输出 */
+
+	/*
+	
+	Redpl.push(Cmp(1, 2));
+	Redpl.push(Cmp(1, 1));
+	cout << Redpl.top().pot << " " << Redpl.top().act << endl;
+
+	for (int i = 1; i <= 5; i++) {
+		for (int k = 1; k <= i; k++)cout << " ";
+		for (int j = 1; j <= 5; j++){
+			cout << RedSide1[i][j] <<"("<< RedAct1[i][j] <<")" << " ";
+		} 
+		cout << endl;
+	}
+	cout << endl;
+	for (int i = 1; i <= 5; i++) {
+		for (int k = 1; k <= i; k++)cout << " ";
+		for (int j = 1; j <= 5; j++) {
+			cout << RedSide2[i][j] << "(" << RedAct2[i][j] << ")" << " ";
+		}
+		cout << endl;
+	}
+	cout << endl;
+	for (int i = 1; i <= 5; i++) {
+		for (int k = 1; k <= i; k++)cout << " ";
+		for (int j = 1; j <= 5; j++) {
+			cout << BlueSide1[i][j] << "(" << BlueAct1[i][j] << ")" << " ";
+		}
+		cout << endl;
+	}
+	cout << endl;
+	for (int i = 1; i <= 5; i++) {
+		for (int k = 1; k <= i; k++)cout << " ";
+		for (int j = 1; j <= 5; j++) {
+			cout << BlueSide2[i][j] << "(" << BlueAct2[i][j] << ")" << " ";
+		}
+		cout << endl;
+	}
+	cout << endl;
+	
+	*/
+
+	return 0;
+}
