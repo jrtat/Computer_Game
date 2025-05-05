@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstring>
 #include <string>
 #include <chrono>
 #include <cstdlib>
@@ -873,8 +874,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 
 int get_fa(int x) {
 	if (fa[x] == x) return x;
-	fa[x] = get_fa(fa[x]);
-	return fa[x];
+	return fa[x] = get_fa(fa[x]);
 }
 
 int TrytoMerge(int x, int y, int curPl) { // 尝试把（x,y）与其相邻点合并 | 返回1表示游戏结束
