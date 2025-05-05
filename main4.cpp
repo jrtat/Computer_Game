@@ -26,7 +26,7 @@ int board[SIZE][SIZE] = { 0 }; //我方1 对方-1 先手不定
 struct Coord {
 	int x, y;
 	Coord(int xx = -1, int yy = -1) { x = xx, y = yy; }
-	Coord(Coord& tmp) { x = tmp.x, y = tmp.y; }
+	Coord(const Coord& tmp) { x = tmp.x, y = tmp.y; }
 	Coord& operator = (const Coord& other) {
 		return *this;
 	}
@@ -75,7 +75,46 @@ vector<Coord> MustDone, HighVal, MidVal, LowVal; // 给所有可行的下一步�
 
 /* End Part1 */
 
-/* Part2 搜素树的节点 */
+/* End Part2 */
+
+/* Part2 函数声明 */
+
+int stepX[6] = { -1,-1, 0, 0, 1, 1 };
+int stepY[6] = { 0, 1,-1, 1,-1, 0 };
+int bridgeX1[6] = { -1,-1,-1,-1, 0, 0 };
+int bridgeY1[6] = { 1, 0, 0, 1,-1, 1 };
+int bridgeX2[6] = { 0, 0, 1, 1, 1, 1 };
+int bridgeY2[6] = { -1, 1,-1, 0, 0,-1 };
+
+bool jdg1(int x, int y);
+
+bool jdg2(int x, int y);
+
+bool jdg3(int x, int y);
+
+bool jdg4(int x, int y);
+
+void Flood(int x, int y, int s, int mark);
+
+void UpdateAdj(int tx, int ty, int mark);
+
+void Capture(int lastX, int lastY, int curPl);
+
+bool Invalid(int curX, int curY);
+
+void ChoosePos(int* cx, int* cy);
+
+void Calc_Potential();
+
+int get_fa(int x);
+
+int TrytoMerge(int x, int y, int curPl);
+
+void MCTS(int lstX, int lstY);
+
+/* End Part2 */
+
+/* Part3 搜素树的节点 */
 
 class TreeNode {
 
@@ -214,43 +253,6 @@ public:
 	}
 
 };
-
-/* End Part2 */
-
-/* Part3 函数声明 */
-
-int stepX[6] = { -1,-1, 0, 0, 1, 1 };
-int stepY[6] = { 0, 1,-1, 1,-1, 0 };
-int bridgeX1[6] = { -1,-1,-1,-1, 0, 0 };
-int bridgeY1[6] = { 1, 0, 0, 1,-1, 1 };
-int bridgeX2[6] = { 0, 0, 1, 1, 1, 1 };
-int bridgeY2[6] = { -1, 1,-1, 0, 0,-1 };
-
-bool jdg1(int x, int y);
-
-bool jdg2(int x, int y);
-
-bool jdg3(int x, int y);
-
-bool jdg4(int x, int y);
-
-void Flood(int x, int y, int s, int mark);
-
-void UpdateAdj(int tx, int ty, int mark);
-
-void Capture(int lastX, int lastY, int curPl); 
-
-bool Invalid(int curX, int curY);
-
-void ChoosePos(int &cx,int &cy);
-
-void Calc_Potential();
-
-int get_fa(int x);
-
-int TrytoMerge(int x, int y, int curPl);
-
-void MCTS(int lstX, int lstY);
 
 /* End Part3 */
 
