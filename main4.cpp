@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <queue>
 #include <cmath>
+#include <iomanip>
 
 using namespace std;
 
@@ -29,6 +30,8 @@ struct Coord {
 	Coord(int xx = -1, int yy = -1) { x = xx, y = yy; }
 	Coord(const Coord& tmp) { x = tmp.x, y = tmp.y; }
 	Coord& operator = (const Coord& other) {
+		x = other.x;
+		y = other.y;
 		return *this;
 	}
 };
@@ -201,7 +204,17 @@ public:
 
 		while (1) { // 直到分出胜负才停
 
+			// 测试
 			cout <<"Last"<<":"<<lastplayer <<" " << lastX << " " << lastY << endl;
+			for (int i = 0; i < 11; i++) {
+				for (int k = 0; k < i; k++) {
+					cout << "  ";
+				}
+				for (int j = 0; j < 11; j++) {
+					cout << setw(5) << curBoard[i][j];
+				}
+				cout << endl;
+			}
 
 			/* 判断胜负（判断的是（lastX，lastY）这一步） */
 			if (TrytoMerge(lastX, lastY, lastplayer) != 0) {
@@ -216,13 +229,15 @@ public:
 
 			Capture(lastX, lastY, -lastplayer); // 找出被捕获的点
 
+			// 测试
 			for (int i = 0; i < MustDone.size();i++) {
 				cout <<"Must:" << MustDone[i].x << " " << MustDone[i].y << endl;
 			}
 
 			for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end();) {
 				if (Invalid(iter->x, iter->y) == 1) {
-					cout << "I:" << iter->x << " " << iter->y << endl;
+					// 测试
+					// cout << "I:" << iter->x << " " << iter->y << endl;
 					curBoard[iter->x][iter->y] = 1; // 给谁都无所谓, 干脆给我
 					iter = UntriedMoves.erase(iter); // 以后也不用考虑这个点了
 				}
@@ -237,10 +252,20 @@ public:
 			/* 更新 */
 			for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end(); iter++) { //更新 UntriedMoves
 				if (iter->x == curX && iter->y == curY) {
+					// 测试
+					// cout << "erase:" << iter->x << " " << iter->y << endl;
 					UntriedMoves.erase(iter);
 					break;
 				}
 			}
+			// 测试
+			/*
+			cout << "Untried:" << endl;
+			for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end(); iter++) {
+				cout<< iter->x << " " << iter->y << endl;
+			}
+			*/
+
 			curBoard[curX][curY] = -lastplayer; // 更新 curBoard
 			lastplayer = -lastplayer, lastX = curX, lastY = curY; // 更新lastplayer lastX lastY
 
@@ -444,7 +469,7 @@ void ChoosePos(int* cx, int* cy) { // 选择下一步的走法
 	Calc_Potential(); // 调用函数计算潜力值和机动性
 
 	if (!MustDone.empty()) {
-		if (rand() % 10 <= 7) {  // 70% 的概率返回Mustdone中的内容
+		if (rand() % 10 <= 7) {  // 返回Mustdone中的内容
 			int r = (rand() % (MustDone.size()));
 			*cx = MustDone[r].x, *cy = MustDone[r].y;
 			return;
@@ -452,14 +477,14 @@ void ChoosePos(int* cx, int* cy) { // 选择下一步的走法
 	}
 
 	if (!HighVal.empty()) {
-		if (rand() % 10 <= 8|| MidVal.empty()) {  // 80% 的概率返回HighVal中的内容
+		if (rand() % 10 <= 9|| MidVal.empty()) {  // 100% 返回HighVal中的内容
 			int r = (rand() % (HighVal.size()));
 			*cx = HighVal[r].x, *cy = HighVal[r].y;
 			return;
 		}
 	}
 
-	if (!MidVal.empty()) {// 80% 的概率返回HighVal中的内容
+	if (!MidVal.empty()) {// 返回HighVal中的内容
 		int r = (rand() % (MidVal.size()));
 		*cx = MidVal[r].x, * cy = MidVal[r].y;
 		return;
@@ -485,7 +510,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 	// 一个新棋盘 保证 红色为1 蓝色为-1 并且下标范围为1-11, 而 0 和 12 行 是边的范围
 	for (int i = 0; i <= 10; i++) {
 		for (int j = 0; j <= 10; j++) {
-			if (mycolor == 1) {
+			if (mycolor == -1) {
 				tempBoard[i + 1][j + 1] = curBoard[i][j];
 			}
 			else tempBoard[i + 1][j + 1] = -curBoard[i][j];
@@ -493,11 +518,6 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 	}
 
 	/* 测试 */
-
-	tempBoard[2][3] = -1;
-	tempBoard[2][4] = -1;
-	// tempBoard[3][4] = -1;
-	// tempBoard[3][11] = -1;
 
 	/* Part1 预处理上红边 */
 
@@ -518,7 +538,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 				int tx = 1 + stepX[j], ty = i + stepY[j];
 				if ((!jdg1(tx, ty)) || vis[tx][ty] || (tempBoard[tx][ty] == -1))continue; // 排除越界 对方棋子 已被更新 三种情况
 				Adj[tx][ty].push(RedSide1[1][i]); // 更新 Adj[tx][ty]
-				if (tempBoard[tx][ty] == 1) { // 如果更新到同色棋子, 通过一次搜素找到一团同色棋子
+				if (tempBoard[tx][ty] == 1) { // 如果更新到同色棋子, 通过一次搜素找到一团同色棋子 
 					memset(FloodVis, 0, sizeof(FloodVis));
 					for (int k = 0; k < 6; k++) { // 防止同一棋子被重复计数
 						int ttx = 1 + stepX[k], tty = i + stepY[k];
@@ -548,7 +568,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 			int tx = x + stepX[j], ty = y + stepY[j];
 			if ((!jdg1(tx, ty)) || vis[tx][ty] || (tempBoard[tx][ty] == -1))continue; // 排除越界 对方棋子 已被更新 三种情况
 			Adj[tx][ty].push(RedSide1[x][y]);
-			if (tempBoard[tx][ty] == 1) {
+			if (tempBoard[tx][ty] == 1) { 
 				memset(FloodVis, 0, sizeof(FloodVis));
 				for (int k = 0; k < 6; k++) { // 防止同一棋子被重复计数
 					int ttx = x + stepX[k], tty = y + stepY[k];
@@ -864,11 +884,52 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 		Redpl.push(Cmp(RedSide1[tx][ty] + RedSide2[tx][ty], min(RedAct1[tx][ty], RedAct2[tx][ty]), tx, ty));
 		Bluepl.push(Cmp(BlueSide1[tx][ty] + BlueSide2[tx][ty], min(BlueAct1[tx][ty], BlueAct2[tx][ty]), tx, ty));
 	}
+	cout << "mycolor: " << mycolor <<endl;
+	cout << "Red1" << endl;
+	for (int i = 1; i <= 11; i++) {
+		for (int k = 1; k < i; k++) {
+			cout << "  ";
+		}
+		for (int j = 1; j <= 11; j++) {
+			cout << setw(5) << RedSide1[i][j];
+		}
+		cout << endl;
+	}
+	cout << "Red2" << endl;
+	for (int i = 1; i <= 11; i++) {
+		for (int k = 1; k < i; k++) {
+			cout << "  ";
+		}
+		for (int j = 1; j <= 11; j++) {
+			cout << setw(5) << RedSide2[i][j];
+		}
+		cout << endl;
+	}
+	cout << "Blue1" << endl;
+	for (int i = 1; i <= 11; i++) {
+		for (int k = 1; k < i; k++) {
+			cout << "  ";
+		}
+		for (int j = 1; j <= 11; j++) {
+			cout << setw(5) << BlueSide1[i][j];
+		}
+		cout << endl;
+	}
+	cout << "Blue2" << endl;
+	for (int i = 1; i <= 11; i++) {
+		for (int k = 1; k < i; k++) {
+			cout << "  ";
+		}
+		for (int j = 1; j <= 11; j++) {
+			cout << setw(5) << BlueSide2[i][j];
+		}
+		cout << endl;
+	}
 
 	/* 更新 HighVal 和 MidVal */
 
 	//记得恢复原来的坐标(0-10)
-	for (int i = 1; i <= 2; i++) { // 每个队列选两个
+	for (int i = 1; i <= 1; i++) { // 每个队列选1个
 		if (!Redpl.empty()) {
 			HighVal.push_back(Coord(Redpl.top().x - 1, Redpl.top().y - 1));
 			Redpl.pop();
