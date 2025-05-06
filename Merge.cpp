@@ -2,7 +2,7 @@
 #include <iomanip>
 using namespace std;
 
-int fa[200] = { 0 }, mycolor = -1; // 红先
+int fa[200] = { 0 }, mycolor = 1; // 红先
 
 int stepX[6] = { -1,-1, 0, 0, 1, 1 };
 int stepY[6] = { 0, 1,-1, 1,-1, 0 };
@@ -80,10 +80,11 @@ int TrytoMerge(int x, int y, int curPl) { // 尝试把（x,y）与其相邻点�
 int main() {
 	for (int i = 0; i < 11 * 11 + 4; i++)fa[i] = i;
 	while (1) {
-		int x, y;
+		int x, y,curpl = 1;
+		// cin >> x >> y>>curpl;
 		cin >> x >> y;
-		curBoard[x][y] = -1;
-		cout<<TrytoMerge(x,y,-1)<<endl;
+		curBoard[x][y] = curpl;
+		cout<<TrytoMerge(x,y,curpl)<<endl;
 		for (int i = 0; i < 11; i++) {
 			for (int k = 0; k < i; k++) {
 				cout << "  ";
