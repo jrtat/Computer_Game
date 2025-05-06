@@ -444,7 +444,7 @@ void ChoosePos(int* cx, int* cy) { // 选择下一步的走法
 	Calc_Potential(); // 调用函数计算潜力值和机动性
 
 	if (!MustDone.empty()) {
-		if (rand() % 10 >= 7) {  // 70% 的概率返回Mustdone中的内容
+		if (rand() % 10 <= 7) {  // 70% 的概率返回Mustdone中的内容
 			int r = (rand() % (MustDone.size()));
 			*cx = MustDone[r].x, *cy = MustDone[r].y;
 			return;
@@ -452,20 +452,20 @@ void ChoosePos(int* cx, int* cy) { // 选择下一步的走法
 	}
 
 	if (!HighVal.empty()) {
-		if (rand() % 10 >= 8) {  // 80% 的概率返回HighVal中的内容
-			int r = (rand() % (HighVal.size() - 1));
+		if (rand() % 10 <= 8|| MidVal.empty()) {  // 80% 的概率返回HighVal中的内容
+			int r = (rand() % (HighVal.size()));
 			*cx = HighVal[r].x, *cy = HighVal[r].y;
 			return;
 		}
 	}
 
 	if (!MidVal.empty()) {// 80% 的概率返回HighVal中的内容
-		int r = (rand() % (MidVal.size() - 1));
+		int r = (rand() % (MidVal.size()));
 		*cx = MidVal[r].x, * cy = MidVal[r].y;
 		return;
 	}
 
-	*cx = -1, * cy = -1;
+	*cx = -100, * cy = -100;
 	return;
 }
 
