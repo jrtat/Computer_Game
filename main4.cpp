@@ -38,7 +38,7 @@ int curBoard[SIZE][SIZE]; //一个棋盘的备份
 int mycolor = 0; // mycolor  -1 表示我的颜色是board[0][0 - 10]和board[10][0 - 10](红色) / 1 表示我的颜色是board[0 - 10][0]和board[0 - 10][10](蓝色)
 
 // 并查集
-int fa[SIZE * SIZE] = { 0 }; // 并查集函数(其中 0,1,2,3分别代表  board[0][0-10] / board[10][0-10]/ board[0-10][0] / board[0-10][10])
+int fa[SIZE * SIZE + 4] = { 0 }; // 并查集函数(其中 0,1,2,3分别代表  board[0][0-10] / board[10][0-10]/ board[0-10][0] / board[0-10][10])
 
 // 计算潜力值和机动性的
 struct Cmp {
@@ -155,7 +155,7 @@ public:
 		return best;
 	}
 
-	TreeNode* Expand() {
+	TreeNode* Expand() { // 5.6 这一部分
 
 		/* 初始化 把Simulate中的策略也应用在Expand中 */
 		TreeNode* ChosenChild = nullptr;
@@ -292,11 +292,15 @@ int main() {
 	/************************************************************************************/
 	/***********在下面填充你的代码，决策结果（本方将落子的位置）存入new_x和new_y中****************/
 
-	if (n == 1 && x == -1) { // 我方先手 下固定位置
-		cout << 1 << ' ' << 2 << endl;
-		return 0;
+	if (n == 1) { // 我方先手 下固定位置
+		if (x == -1) {
+			cout << 1 << ' ' << 2 << endl;
+			return 0;
+		}
+		else {
+			mycolor = 1; // 对方先手, 我是蓝色
+		}
 	}
-
 
 	/* 初始化 */
 
@@ -894,51 +898,59 @@ int get_fa(int x) {
 int TrytoMerge(int x, int y, int curPl) { // 尝试把（x,y）与其相邻点合并 | 返回1表示游戏结束
 
 	int flag1 = 0, flag2 = 0; // 是否接触到下半边 是否接触到上半边
-	// fa中 0,1,2,3分别代表  board[0][0-10] / board[10][0-10]/ board[0-10][0] / board[0-10][10]
+	// fa中 0,1,2,3分别代表  board[0][0-10] / board[10][0-10]/ board[0-10][0] / board[0-10][10] 四个边
 	// mycolor  -1 表示我的颜色是board[0][0 - 10]和board[10][0 - 10](红色) / 1 表示我的颜色是board[0 - 10][0]和board[0 - 10][10](蓝色)
-	// （x,y）判断是否到达自己的边缘 如果到达则记录
+	
+	int curfa = get_fa(x * 11 + y + 4);
+	
+	if (curfa == 0 || curfa == 2) flag1 = 1;
+	if (curfa == 1 || curfa == 3) flag2 = 1;
+
+	// 判断是否到达自己的边缘 如果到达则记录
 	if (x == 0 && ((mycolor == -1 && curPl == 1) || (mycolor == 1 && curPl == -1))) { // 0 边
 		flag1 = 1;
-		if (get_fa(x * 11 + y + 4) == 1) {
+		if (flag2 == 1) {
 			return 1;
 		}
-		else fa[get_fa(x * 11 + y + 4)] = 0;
+		else fa[curfa] = 0;
 	}
 	if (x == 10 && ((mycolor == -1 && curPl == 1) || (mycolor == 1 && curPl == -1))) { // 1 边
 		flag2 = 1;
-		if (get_fa(x * 11 + y + 4) == 0) {
+		if (flag1 == 1) {
 			return 1;
 		}
-		else fa[get_fa(x * 11 + y + 4)] = 1;
+		else fa[curfa] = 1;
 	}
 	if (y == 0 && ((mycolor == -1 && curPl == -1) || (mycolor == 1 && curPl == 1))) { // 2 边
 		flag1 = 1;
-		if (get_fa(x * 11 + y + 4) == 3) {
+		if (flag2 == 1) {
 			return 1;
 		}
-		else fa[get_fa(x * 11 + y + 4)] = 2;
+		else fa[curfa] = 2;
 	}
 	if (y == 10 && ((mycolor == -1 && curPl == -1) || (mycolor == 1 && curPl == 1))) { // 3 边
 		flag2 = 1;
-		if (get_fa(x * 11 + y + 4) == 2) {
+		if (flag1 == 1) {
 			return 1;
 		}
-		else fa[get_fa(x * 11 + y + 4)] = 3;
+		else fa[curfa] = 3;
 	}
-
+	// 更新 curfa
+	curfa = get_fa(x * 11 + y + 4);
 	for (int i = 0; i < 6; i++) {
 		int tmpX = x + stepX[i], tmpY = y + stepY[i];
 		if (tmpX < 0 || tmpY < 0 || tmpX > 10 || tmpY > 10) continue; // 排除不合法位置
-		if (curBoard[tmpX][tmpY] != curPl)continue; // 排除对手棋子 和 空位置
+		if (curBoard[tmpX][tmpY] != curPl) continue; // 排除对手棋子 和 空位置
 
-		int tmpfa = get_fa(tmpX * 11 + tmpY + 4), curfa = get_fa(x * 11 + y + 4);
+		int tmpfa = get_fa(tmpX * 11 + tmpY + 4);
 		if (tmpfa == 0 || tmpfa == 2) { flag1 = 1; } // 判断是否有到边上的点
 		if (tmpfa == 1 || tmpfa == 3) { flag2 = 1; }
 
 		if (flag1 == 1 && flag2 == 1) { // 如果此时上下已经连通 说明已经胜利 直接返回
 			return 1;
 		}
-		if (tmpfa <= 3) {
+
+		if (tmpfa <= 3) { // 合并, 要保证0-3作为集合的代表
 			fa[curfa] = tmpfa;
 		}
 		else fa[tmpfa] = curfa;
@@ -972,7 +984,6 @@ void MCTS(int lstX, int lstY) {
 		
 		// 初始化并查集
 		for (int i = 0; i < 11 * 11 + 4; i++) fa[i] = i;
-		//fa[0] = 0, fa[1] = 1, fa[2] = 2, fa[3] = 3;
 
 		for (int i = 0; i <= 10; i++) {
 			for (int j = 0; j <= 10; j++) {
