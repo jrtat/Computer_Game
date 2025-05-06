@@ -79,13 +79,12 @@ vector<Coord> MustDone, HighVal, MidVal, LowVal; // 给所有可行的下一步�
 /* End Part2 */
 
 /* Part2 函数声明 */
-
-int stepX[6] = {-1,-1, 0, 0, 1, 1 };
-int stepY[6] = { 0, 1,-1, 1,-1, 0 };
-int bridgeX1[6] = { -1,-1,-1,-1, 0, 0 };
-int bridgeY1[6] = { 1, 0, 0, 1,-1, 1 };
-int bridgeX2[6] = { 0, 0, 1, 1, 1, 1 };
-int bridgeY2[6] = { -1, 1,-1, 0, 0,-1 };
+int stepX[6] = { -1,-1, 0, 1, 1 , 0};
+int stepY[6] = {  0, 1, 1, 0,-1 ,-1};
+int bridgeX1[6] = { -1,-1,-1, 0, 0,-1};
+int bridgeY1[6] = {  1, 0, 1, 1,-1, 0};
+int bridgeX2[6] = {  0, 0, 1, 1, 1, 1};
+int bridgeY2[6] = { -1, 1, 0,-1, 0,-1};
 
 bool jdg1(int x, int y);
 
@@ -410,33 +409,34 @@ bool Invalid(int curX, int curY) { // 返回1说明（curX, curY）是无效位�
 			ctr2++;
 			ctr1 = 0;
 		}
-		// 判定
+		// 判定1
 		if (ctr1 == 4) {
 			return 1;
 		}
 		else if (ctr1 == 3) {
 			int tx = curX + stepX[(i + 2) % 6], ty = curY + stepY[(i + 2) % 6];
-			if (curBoard[tx][ty] == -1) return 1;
+			if (curBoard[tx][ty] == 1) return 1;
 		}
 		else if (ctr1 == 2) {
 			int tx1 = curX + stepX[(i + 2) % 6], ty1 = curY + stepY[(i + 2) % 6];
 			int tx2 = curX + stepX[(i + 3) % 6], ty2 = curY + stepY[(i + 3) % 6];
-			if (curBoard[tx1][ty1] == -1 && curBoard[tx2][ty2] == -1) return 1;
+			if (curBoard[tx1][ty1] == 1 && curBoard[tx2][ty2] == 1) return 1;
 		}
+		// 判定2
 		if (ctr2 == 4) {
 			return 1;
 		}
 		else if (ctr2 == 3) {
 			int tx = curX + stepX[(i + 2) % 6], ty = curY + stepY[(i + 2) % 6];
-			if (curBoard[tx][ty] == 1) return 1;
+			if (curBoard[tx][ty] == -1) return 1;
 		}
 		else if (ctr2 == 2) {
 			int tx1 = curX + stepX[(i + 2) % 6], ty1 = curY + stepY[(i + 2) % 6];
 			int tx2 = curX + stepX[(i + 3) % 6], ty2 = curY + stepY[(i + 3) % 6];
-			if (curBoard[tx1][ty1] == 1 && curBoard[tx2][ty2] == 1) return 1;
+			if (curBoard[tx1][ty1] == -1 && curBoard[tx2][ty2] == -1) return 1;
 		}
 	}
-	return 0; 
+	return 0;
 }
 
 void ChoosePos(int* cx, int* cy) { // 选择下一步的走法
