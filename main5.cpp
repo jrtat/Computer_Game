@@ -155,7 +155,7 @@ public:
 		return best;
 	}
 
-	TreeNode* Expand() { // 5.6 这一部分
+	TreeNode* Expand() { // 错的 UntriedMove
 
 		/* 初始化 */
 		TreeNode* ChosenChild = nullptr;
@@ -168,7 +168,7 @@ public:
 		for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end();) {
 			if (Invalid(iter->x, iter->y) == 1) {
 				// 测试
-				cout << "I:" << iter->x << " " << iter->y << endl;
+				//cout << "I:" << iter->x << " " << iter->y << endl;
 				curBoard[iter->x][iter->y] = 1; // 给谁都无所谓, 干脆给我
 				iter = UntriedMoves.erase(iter); // 以后也不用考虑这个点了
 			}
@@ -176,7 +176,7 @@ public:
 		}
 
 		/* 向搜素树添加节点 */
-		for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end(); iter++) {
+		for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end(); iter++) { // 错的
 			TreeNode* child = new TreeNode(iter->x, iter->y, -player, this); // 子节点玩家对当前玩家取反
 			children.push_back(child);
 		}
@@ -216,15 +216,15 @@ public:
 			///*
 			for (int ii = 0; ii <= 10; ii++) {
 				for (int jj = 0; jj <= 10; jj++) {
-					cout << setw(5) << fa[ii * 11 + jj + 4];
+					cout << setw(5) << fa[ii * 11 + jj];
 				}
 				cout << endl;
 			}
 
-			cout << "fa[200]=" << fa[200] / 11 << " " << fa[200] % 11 << endl;
-			cout << "fa[201]=" << fa[201] / 11 << " " << fa[201] % 11 << endl;
-			cout << "fa[202]=" << fa[202] / 11 << " " << fa[202] % 11 << endl;
-			cout << "fa[203]=" << fa[203] / 11 << " " << fa[203] % 11 << endl;
+			cout << "fa[200]=" << get_fa(200) / 11 << " " << get_fa(200) % 11 << endl;
+			cout << "fa[201]=" << get_fa(201) / 11 << " " << get_fa(201) % 11 << endl;
+			cout << "fa[202]=" << get_fa(202) / 11 << " " << get_fa(202) % 11 << endl;
+			cout << "fa[203]=" << get_fa(203) / 11 << " " << get_fa(203) % 11 << endl;
 			for (int i = 0; i < 11; i++) {
 				for (int k = 0; k < i; k++) {
 					cout << "  ";
@@ -961,7 +961,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 		Redpl.pop();
 	}
 	while (!Redpl.empty()) {
-		if (Redpl.top().pot == val1 && Redpl.top().pot >= val3 - 1) {
+		if (Redpl.top().pot == val1 && Redpl.top().act >= val3 - 1) {
 			HighVal.push_back(Coord(Redpl.top().x - 1, Redpl.top().y - 1)); //记得恢复原来的坐标(0-10)
 			Redpl.pop();
 		}
@@ -975,7 +975,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 		Bluepl.pop();
 	}
 	while (!Bluepl.empty()) {
-		if (Bluepl.top().pot == val2 && Bluepl.top().pot >= val4 - 1) {
+		if (Bluepl.top().pot == val2 && Bluepl.top().act >= val4 - 1) {
 			HighVal.push_back(Coord(Bluepl.top().x - 1, Bluepl.top().y - 1)); //记得恢复原来的坐标(0-10)
 			Bluepl.pop();
 		}
