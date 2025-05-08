@@ -35,7 +35,7 @@ struct Coord {
 	}
 };
 
-vector<Coord> UnusedGrid, UntriedMoves; // 用来记录没下过的点
+vector<Coord> UntriedMoves; // 用来记录没下过的点
 int curBoard[SIZE][SIZE]; // 一个棋盘的备份
 int mycolor = 0; // mycolor  -1 表示我的颜色是board[0][0 - 10]和board[10][0 - 10](红色) / 1 表示我的颜色是board[0 - 10][0]和board[0 - 10][10](蓝色)
 
@@ -149,9 +149,9 @@ public:
 		for (auto iter = UntriedMoves.begin(); iter != UntriedMoves.end();) {
 			if (Invalid(iter->x, iter->y) == 1) {
 				// 测试
-				// cout << "I:" << iter->x << " " << iter->y << endl;
-				curBoard[iter->x][iter->y] = 1; // 给谁都无所谓, 干脆给我
-				iter = UntriedMoves.erase(iter); // 以后也不用考虑这个点了
+				// curBoard[iter->x][iter->y] = 0; 
+				// 从UntriedMove中删除, 保证该点不被Expand
+				iter = UntriedMoves.erase(iter);
 			}
 			else  iter++;
 		}
@@ -168,11 +168,16 @@ public:
 
 		// 选一个点用作扩展
 		int c = (rand() % Choose.size());
-		update[Choose[c].x][Choose[c].y]=1;
-		curBoard[Choose[c].x][Choose[c].y] = -player;
-		ChosenChild = new TreeNode(Choose[c].x, Choose[c].y, -player, this); // 子节点玩家对当前玩家取反
+		auto iter = UntriedMoves.begin() + c;
+		// 防止该坐标被重复扩展
+		update[iter->x][iter->y] = 1;
+		// 将其加入当前节点的Children
+		ChosenChild = new TreeNode(iter->x, iter->y, -player, this); // 子节点玩家对当前玩家取反
 		children.push_back(ChosenChild);
-		
+		// 从UntriedMove中删点（这个被提前到这里, 是因为这里有iter）
+		UntriedMoves.erase(iter);
+
+
 		for (auto iter = Choose.begin(); iter != Choose.end(); iter++) { 
 			if (update[iter->x][iter->y] >= 1) {
 				update[iter->x][iter->y]++;
@@ -206,7 +211,7 @@ public:
 			// cout <<"Remain:" << UntriedMoves.size() << endl;
 
 			int c = (rand() % UntriedMoves.size());
-			auto iter = UntriedMoves.begin()+c;
+			auto iter = UntriedMoves.begin() + c;
 			// 更新 lastX， lastY
 			lastX = iter->x, lastY = iter->y;
 			// cout << "go:" << lastX << " " << lastY << endl;
@@ -420,7 +425,6 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 	memset(BlueSide2, 0x3f, sizeof(BlueSide2));
 	memset(RedSide1, 0x3f, sizeof(RedSide1));
 	memset(RedSide2, 0x3f, sizeof(RedSide2));
-
 
 	// 一个新棋盘 保证 红色为1 蓝色为-1 并且下标范围为1-11, 而 0 和 12 行 是边的范围
 	for (int i = 0; i <= 10; i++) {
@@ -674,7 +678,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 		}
 	}
 
-	// 算机动性 顺带清空Adj
+	// 清空Adj
 	for (int i = 1; i <= 11; i++) {
 		for (int j = 1; j <= 11; j++) {
 			while (!Adj[i][j].empty()) Adj[i][j].pop(); // 清空Adj
@@ -758,7 +762,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 		}
 	}
 
-	// 算机动性 顺带清空Adj
+	// 清空Adj
 	for (int i = 1; i <= 11; i++) {
 		for (int j = 1; j <= 11; j++) {
 			while (!Adj[i][j].empty()) Adj[i][j].pop(); // 清空Adj
@@ -819,7 +823,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 	}
 	*/
 
-	/* 更新 HighVal 和 MidVal */
+	/* 更新 Choose */
 	
 	int val1 = -1, val2 = -1;
 	for (int i = 1; (!Redpl.empty()) && i <= ExpNum; i++) {
@@ -845,6 +849,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 		else break;
 	}
 
+	/* 清空Redpl 和 Bluepl */
 	while (!Redpl.empty()) {
 		Redpl.pop();
 	}
@@ -854,7 +859,7 @@ void Calc_Potential() { // 计算双威胁值 用到CurBoard
 
 }
 
-int get_fa(int x) { // 会死循环
+int get_fa(int x) {
 	if (fa[x] == x) return x;
 	return fa[x] = get_fa(fa[x]);
 }
@@ -905,12 +910,15 @@ void MCTS(int lstX, int lstY) {
 		/* 计时 */
 		auto stops = chrono::steady_clock::now();
 
-		if (chrono::duration_cast<chrono::milliseconds>(stops - start).count() >= 950) { // 提前1ms结束
+		if (chrono::duration_cast<chrono::milliseconds>(stops - start).count() >= 1950) { // 提前1ms结束
 			break;
 		}
 
 		/* 预处理 */
 		
+		// 一个标记
+		int alreadyWin = 0;
+
 		// 初始化并查集
 		for (int i = 0; i < 11 * 11; i++) fa[i] = i;
 		for (int i = 200; i < 204; i++) fa[i] = i;
@@ -930,7 +938,6 @@ void MCTS(int lstX, int lstY) {
 		// cout << "Selection"<<endl;
 
 		TreeNode* node = root;
-		int alreadyWin = 0;
 		
 		while (!node->children.empty()) {
 			node = node->Select();
@@ -951,11 +958,7 @@ void MCTS(int lstX, int lstY) {
 			return;
 		}
 
-		// cout << node->move_x << " " << node->move_y << endl;
-
 		/* Expand 部分 */
-
-		// cout << "Expand" << endl;
 
 		// 初始化UntriedMoves 
 		UntriedMoves.clear();
@@ -966,14 +969,27 @@ void MCTS(int lstX, int lstY) {
 		if (node->n >= counter) {
 			// 只有一个节点被模拟了足够的次数时, 才进行扩展
 			node = node->Expand();
+
+			if (node == nullptr) { // 这个叶节点扩展不出来一个节点, 也就是说, 该节点表示的状态是一个摆满棋子的棋盘
+				return;
+			}
+
+			// 更新这个点的curboard （这俩被拖到这里是因为要判断正负）
+			curBoard[node->move_x][node->move_y] = node->player;
+			// 更新并查集
+			if (TrytoMerge(node->move_x, node->move_y, node->player) != 0) {
+				node->BackPropagate(1);
+				alreadyWin = 1;
+			}
 		}
+
+		// 这种情况是: 还没模拟就已经赢了
+		if (alreadyWin == 1) continue;
 		
 		// cout <<"CurCounter:" << node->n << endl;
 		// cout << "Curnode:" << node->move_x << " " << node->move_y << endl;
 
-		if (node == nullptr) { // 这个叶节点扩展不出来一个节点, 也就是说, 该节点表示的状态是一个摆满棋子的棋盘
-			return;
-		}
+		
 
 		/* Simulate 部分 */
 
