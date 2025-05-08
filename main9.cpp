@@ -438,12 +438,12 @@ bool Invalid(int curX, int curY) { // 返回1说明（curX, curY）是无效位�
 		}
 		else if (ctr1 == 3) {
 			int tx = curX + stepX[(i + 2) % 6], ty = curY + stepY[(i + 2) % 6];
-			if (curBoard[tx][ty] == 1) return 1;
+			if (curBoard[tx][ty] == -1) return 1;
 		}
 		else if (ctr1 == 2) {
 			int tx1 = curX + stepX[(i + 2) % 6], ty1 = curY + stepY[(i + 2) % 6];
 			int tx2 = curX + stepX[(i + 3) % 6], ty2 = curY + stepY[(i + 3) % 6];
-			if (curBoard[tx1][ty1] == 1 && curBoard[tx2][ty2] == 1) return 1;
+			if (curBoard[tx1][ty1] == -1 && curBoard[tx2][ty2] == -1) return 1;
 		}
 		// 判定2
 		if (ctr2 == 4) {
@@ -451,12 +451,12 @@ bool Invalid(int curX, int curY) { // 返回1说明（curX, curY）是无效位�
 		}
 		else if (ctr2 == 3) {
 			int tx = curX + stepX[(i + 2) % 6], ty = curY + stepY[(i + 2) % 6];
-			if (curBoard[tx][ty] == -1) return 1;
+			if (curBoard[tx][ty] == 1) return 1;
 		}
 		else if (ctr2 == 2) {
 			int tx1 = curX + stepX[(i + 2) % 6], ty1 = curY + stepY[(i + 2) % 6];
 			int tx2 = curX + stepX[(i + 3) % 6], ty2 = curY + stepY[(i + 3) % 6];
-			if (curBoard[tx1][ty1] == -1 && curBoard[tx2][ty2] == -1) return 1;
+			if (curBoard[tx1][ty1] == 1 && curBoard[tx2][ty2] == 1) return 1;
 		}
 	}
 	return 0;
