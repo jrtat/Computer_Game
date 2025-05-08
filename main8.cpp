@@ -21,9 +21,6 @@ const int counter = 20; // 在被模拟多少次后扩展
 const double uct = 0.5; // ucb公式中的参数c
 const int ExpNum = 15, Tolerant = 3; // 扩展多少节点 容忍多少潜力值的差距
 
-// 计时
-auto start = chrono::steady_clock::now(), stops = chrono::steady_clock::now();// 计时
-
 // 记录棋盘信息
 const int SIZE = 15;
 int board[SIZE][SIZE] = { 0 }; //我方1 对方-1 先手不定
@@ -893,7 +890,7 @@ int TrytoMerge(int x, int y, int curPl) { // 尝试把（x,y）与其相邻点�
 
 void MCTS(int lstX, int lstY) {
 
-	start = chrono::steady_clock::now(); // 获取开始时间
+	auto start = chrono::steady_clock::now(); // 获取开始时间
 
 	TreeNode* root = new TreeNode(lstX, lstY, -1, nullptr); // 初始化根节点（根节点的玩家记为对方）
 
@@ -906,9 +903,9 @@ void MCTS(int lstX, int lstY) {
 		printf("%d\n", ctr);
 
 		/* 计时 */
-		stops = chrono::steady_clock::now();
+		auto stops = chrono::steady_clock::now();
 
-		if (chrono::duration_cast<chrono::milliseconds>(stops - start).count() >= 900) { // 提前1ms结束
+		if (chrono::duration_cast<chrono::milliseconds>(stops - start).count() >= 950) { // 提前1ms结束
 			break;
 		}
 
