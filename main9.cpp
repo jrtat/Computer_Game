@@ -267,7 +267,7 @@ public:
 		TreeNode* node = this;
 		while (node != nullptr) {
 			node->n += 1;
-			node->val += re;
+			if(re == 1) node->val += re;
 			re = -re;
 			node = node->father;
 		}
