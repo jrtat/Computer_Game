@@ -113,6 +113,8 @@ bool Invalid(int curX, int curY);
 
 void judge(int x, int y, int curPl);
 
+void Edge(int curPl);
+
 void Calc_Potential();
 
 int get_fa(int x);
